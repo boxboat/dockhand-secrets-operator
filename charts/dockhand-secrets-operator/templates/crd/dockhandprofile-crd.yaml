@@ -1,0 +1,128 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: dockhandprofiles.dockhand.boxboat.io
+  labels:
+    app.kubernetes.io/name: dockhandprofiles.dockhand.boxboat.io
+    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
+spec:
+  group: dockhand.boxboat.io
+  scope: Namespaced
+  names:
+    plural: dockhandprofiles
+    singular: dockhandprofile
+    kind: DockhandProfile
+    shortNames:
+      - dhp
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            awsSecretsManager:
+              type: object
+              description: |-
+                AWS Secrets Manager configuration to allow the Dockhand Secrets Operator to retrieve Secrets from AWS
+              allOf:
+                - required:
+                    - region
+              properties:
+                cacheTTL:
+                  type: integer
+                  default: 60
+                  description: |-
+                    Number of seconds to cache secret responses
+                region:
+                  type: string
+                  description: |-
+                    AWS Region to retrieve secrets from
+                accessKeyId:
+                  type: string
+                  description: |-
+                    AWS IAM Access Key
+                secretAccessKeyRef:
+                  type: string
+                  description: |-
+                    Name of secret containing AWS IAM Secret Access Key in a key named AWS_SECRET_ACCES_KEY
+            azureKeyVault:
+              type: object
+              description: |-
+                Azure Key Vault configuration to allow the Dockhand Secrets Operator to retrieve Secrets from Azure
+              allOf:
+                - required:
+                    - tenant
+                    - keyVault
+              properties:
+                cacheTTL:
+                  type: integer
+                  default: 60
+                  description: |-
+                    Number of seconds to cache secret responses
+                tenant:
+                  type: string
+                  description: |-
+                    Azure Tenant ID where the Key Vault resides
+                clientId:
+                  type: string
+                  description: |-
+                    Azure Client ID to access the Key Vault
+                clientSecretRef:
+                  type: string
+                  description: |-
+                    Name of secret containing the Azure Client Secret in a key named AZURE_CLIENT_SECRET
+                keyVault:
+                  type: string
+                  description: |-
+                    Name of Azure Key Vault to retrieve secrets from
+            gcpSecretsManager:
+              type: object
+              description: |-
+                Google Cloud Platform Secrets Manager Configuration to allow Dockhand Secrets Operator to retrieve secrets
+                from GCP. Authentication can be Application Default Credentials or by providing a key.json
+              properties:
+                cacheTTL:
+                  type: integer
+                  default: 60
+                  description: |-
+                    Number of seconds to cache secret responses
+                project:
+                  type: string
+                  description: |-
+                    The GCP Project to reference for this profile
+                credentialsFileSecretRef:
+                  type: string
+                  description: |-
+                    Secret containing JSON credentials file stored in a key named gcp-credentials.json
+            vault:
+              type: object
+              description: |-
+                HashiCorp Vault Configuration to allow Dockhand Secrets Operator to retrieve secrets from Vault. Secrets
+                can be retrieved with either a roleId/secretId or with a Vault Token.
+              allOf:
+                - required:
+                    - addr
+              properties:
+                cacheTTL:
+                  type: integer
+                  default: 60
+                  description: |-
+                    Number of seconds to cache secret responses
+                addr:
+                  type: string
+                  description: |-
+                    Vault Address e.g. http://vault:8200
+                roleId:
+                  type: string
+                  description: |-
+                    Vault Role ID
+                secretIdRef:
+                  type: string
+                  description: |-
+                    Name of secret containing the Vault secretId in a key named VAULT_SECRET_ID
+                tokenRef:
+                  type: string
+                  description: |-
+                    Name of secret containing the Vault Token in a key named VAULT_TOKEN
