@@ -1,0 +1,5 @@
+/dockhand-secrets-operator
+/release
+.idea
+/local-test
+*.json

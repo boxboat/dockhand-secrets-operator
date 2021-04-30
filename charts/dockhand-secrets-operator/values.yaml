@@ -1,0 +1,16 @@
+
+operator:
+  replicas: 1
+  image:
+    pullPolicy: IfNotPresent
+    repository: dockhand-secrets-operator
+    tag: latest
+  resources: {}
+
+controller:
+  replicas: 1
+  image:
+    pullPolicy: IfNotPresent
+    repository: dockhand-secrets-operator
+    tag: latest
+  resources: {}
