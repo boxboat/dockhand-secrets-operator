@@ -32,21 +32,29 @@ awsSecretsManager:
   cacheTTL: 60
   region: us-east-1
   accessKeyId: <accessKeyId>
-  secretAccessKeyRef: dockhand-profile-secrets
+  secretAccessKeyRef:
+    name: dockhand-profile-secrets
+    key: aws-secret-access-key
 azureKeyVault:
   cacheTTL: 60
   keyVault: dockcmd
   tenant: <tenantId>
   clientId: <clientId>
-  clientSecretRef: dockhand-profile-secrets
+  clientSecretRef:
+    name: dockhand-profile-secrets
+    key: azure-client-secret
 gcpSecretsManager:
   cacheTTL: 60
   project: myproject
-  credentialsFileSecretRef: dockhand-profile-secrets
+  credentialsFileSecretRef:
+    name: dockhand-profile-secrets
+    key: gcp-credentials.json
 vault:
   cacheTTL: 60
   addr: http://vault:8200
-  tokenRef: dockhand-profile-secrets
+  tokenRef:
+    name: dockhand-profile-secrets
+    key: vault-token
 ---
 apiVersion: v1
 kind: Secret
@@ -55,9 +63,9 @@ metadata:
   name: dockhand-profile-secrets
   namespace: dockhand-secrets-operator
 data:
-  AWS_SECRET_ACCESS_KEY: <Base64 AWS SECRET KEY>
-  VAULT_TOKEN: <Base64 encoded vault token>
-  AZURE_CLIENT_SECRET: <Base64 encoded azure client secret>
+  aws-secret-access-key: <Base64 AWS SECRET KEY>
+  vault-token: <Base64 encoded vault token>
+  azure-client-secret: <Base64 encoded azure client secret>
   gcp-credentials.json: <Base64 encoded GCP JSON file>
 ```
 
@@ -79,7 +87,15 @@ kind: DockhandSecret
 metadata:
   name: dockhand-example-secret
 dockhandProfile: dockhand-profile
-secretName: example-secret
+secretSpec:
+  name: example-secret
+  type: Opaque
+  # optional
+  labels:
+    foo: bar
+  # optional
+  annotations:
+    alpha: charlie
 data:
   aws-alpha: << (aws "dockcmd-test" "alpha") >>
   aws-bravo: << (aws "dockcmd-test" "bravo") >>

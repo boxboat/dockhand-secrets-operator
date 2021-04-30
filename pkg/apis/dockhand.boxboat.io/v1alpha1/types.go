@@ -28,36 +28,42 @@ const (
 	SecretChecksumAnnotationKey       = "dockhand.boxboat.io/secretChecksum"
 )
 
-// AwsSecretsManager specifices the configuration for accessing AWS Secrets.
+// SecretRef specifies a reference to a Secret
+type SecretRef struct {
+	Name string `json:"name"`
+	Key  string `json:"key"`
+}
+
+// AwsSecretsManager specifies the configuration for accessing AWS Secrets.
 type AwsSecretsManager struct {
-	CacheTTL           int     `json:"cacheTTL"`
-	Region             string  `json:"region"`
-	AccessKeyId        *string `json:"accessKeyId,omitempty"`
-	SecretAccessKeyRef *string `json:"secretAccessKeyRef,omitempty"`
+	CacheTTL           int        `json:"cacheTTL"`
+	Region             string     `json:"region"`
+	AccessKeyId        *string    `json:"accessKeyId,omitempty"`
+	SecretAccessKeyRef *SecretRef `json:"secretAccessKeyRef,omitempty"`
 }
 
 // AzureKeyVault specifies the configuration for accessing Azure Key Vault secrets.
 type AzureKeyVault struct {
-	CacheTTL        int     `json:"cacheTTL"`
-	Tenant          string  `json:"tenant"`
-	ClientId        *string `json:"clientId,omitempty"`
-	ClientSecretRef *string `json:"clientSecretRef,omitempty"`
-	KeyVault        string  `json:"keyVault"`
+	CacheTTL        int        `json:"cacheTTL"`
+	Tenant          string     `json:"tenant"`
+	ClientId        *string    `json:"clientId,omitempty"`
+	ClientSecretRef *SecretRef `json:"clientSecretRef,omitempty"`
+	KeyVault        string     `json:"keyVault"`
 }
 
 type GcpSecretsManager struct {
-	CacheTTL                 int     `json:"cacheTTL"`
-	Project                  string  `json:"project"`
-	CredentialsFileSecretRef *string `json:"credentialsFileSecretRef"`
+	CacheTTL                 int        `json:"cacheTTL"`
+	Project                  string     `json:"project"`
+	CredentialsFileSecretRef *SecretRef `json:"credentialsFileSecretRef"`
 }
 
 // Vault specifies the configuration for accessing Vault secrets.
 type Vault struct {
-	CacheTTL    int     `json:"cacheTTL"`
-	Addr        string  `json:"addr"`
-	RoleId      *string `json:"roleId,omitempty"`
-	SecretIdRef *string `json:"secretIdRef,omitempty"`
-	TokenRef    *string `json:"tokenRef,omitempty"`
+	CacheTTL    int        `json:"cacheTTL"`
+	Addr        string     `json:"addr"`
+	RoleId      *string    `json:"roleId,omitempty"`
+	SecretIdRef *SecretRef `json:"secretIdRef,omitempty"`
+	TokenRef    *SecretRef `json:"tokenRef,omitempty"`
 }
 
 // +genclient
@@ -83,10 +89,18 @@ type DockhandSecret struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Data            map[string]string `json:"data"`
-	SecretName      string            `json:"secretName"`
+	SecretSpec      SecretSpec        `json:"secretSpec"`
 	DockhandProfile string            `json:"dockhandProfile"`
 
 	Status DockhandSecretStatus `json:"status"`
+}
+
+// SecretSpec defines the kubernetes secret data to use for the secret managed by a DockhandSecret
+type SecretSpec struct {
+	Name        string            `json:"name"`
+	Type        string            `json:"type"`
+	Labels      map[string]string `json:"labels"`
+	Annotations map[string]string `json:"annotations"`
 }
 
 type DockhandSecretStatus struct {
