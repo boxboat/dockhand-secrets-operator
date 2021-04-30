@@ -1,9 +1,14 @@
 # dockhand-secrets-operator
+![Main](https://github.com/boxboat/dockhand-secrets-operator/workflows/docker/badge.svg?branch=master)
+
 Secrets management with GitOps can be challenging in Kubernetes environments. Often engineers resort to manual secret creation,  injection of secrets through scripts with the CI/CD tool or even worse just committing the secrets directly to git.
 
 The Dockhand Secrets Operator solves that problem by allowing you to make arbitrary secrets in a familiar way with only the secret bits stored in the backend(s) of your choice - AWS Secrets Manager, Azure Key Vault, GCP Secrets Manager or Vault. Secret references can be stored in git with your Helm chart or Kubernetes manifests. 
 
 The operator supports auto rolling updates for `Deployments`, `StatefulSets` and `DaemonSets` through the use of a single `label` added to the metadata of those items. The operator accomplishes this by injecting an annotation with the checksum of the `Secrets` referenced in those manifests and will update that checksum annotation automatically when the secret changes. 
+
+# ⚠️ Development Note
+Please be aware that until `0.1.0` is released, some changes may occur to the structure of the CRDs.
 
 ## Usage
 1. Install Helm Chart
