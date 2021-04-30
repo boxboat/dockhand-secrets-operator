@@ -3,7 +3,7 @@ module github.com/boxboat/dockhand-secrets-operator
 go 1.15
 
 require (
-	github.com/boxboat/dockcmd v0.0.0-20210426215111-ab4e06a252ae
+	github.com/boxboat/dockcmd v1.6.0
 	github.com/gobuffalo/packr/v2 v2.7.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/rancher/lasso v0.0.0-20210408231703-9ddd9378d08d
