@@ -92,11 +92,11 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.DockhandSecr
 		return nil, nil
 	}
 	common.Log.Debugf("DockhandSecret remove: %v", secret)
-	common.Log.Debugf("removing secret=%s from namespace=%s", secret.SecretName, secret.Namespace)
-	if err := h.secrets.Delete(secret.Namespace, secret.SecretName, &metav1.DeleteOptions{}); err != nil {
+	common.Log.Debugf("removing secret=%s from namespace=%s", secret.SecretSpec.Name, secret.Namespace)
+	if err := h.secrets.Delete(secret.Namespace, secret.SecretSpec.Name, &metav1.DeleteOptions{}); err != nil {
 		common.Log.Warnf(
 			"could not delete secret=%s from namespace=%s",
-			secret.SecretName,
+			secret.SecretSpec.Name,
 			secret.Namespace)
 	}
 
@@ -115,26 +115,44 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 	}
 	h.loadDockhandProfile(profile)
 
-	k8sSecret, err := h.secrets.Get(secret.Namespace, secret.SecretName, metav1.GetOptions{})
+	k8sSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{})
+
 	newSecret := false
 	if err != nil {
 		newSecret = true
 		k8sSecret = &corev1.Secret{
-			Type: corev1.SecretTypeOpaque,
+			Type: corev1.SecretType(secret.SecretSpec.Type),
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      secret.SecretName,
+				Name:      secret.SecretSpec.Name,
 				Namespace: secret.Namespace,
 				Labels:    make(map[string]string),
+				Annotations: make(map[string]string),
 			},
 			Data: make(map[string][]byte),
 		}
+	} else {
+		if k8sSecret.Labels == nil {
+			k8sSecret.Labels = make(map[string]string)
+		}
+		if k8sSecret.Annotations == nil {
+			k8sSecret.Annotations = make(map[string]string)
+		}
 	}
-	if k8sSecret.Labels == nil {
-		k8sSecret.Labels = make(map[string]string)
+
+	if secret.SecretSpec.Labels != nil {
+		for k,v := range secret.SecretSpec.Labels{
+			k8sSecret.Labels[k] = v
+		}
+	}
+
+	if secret.SecretSpec.Annotations != nil {
+		for k,v := range secret.SecretSpec.Annotations{
+			k8sSecret.Annotations[k] = v
+		}
 	}
 
 	// Store reference in Secret to owning DockhandSecret
-	k8sSecret.Labels[dockhand.DockhandSecretLabelKey] = secret.SecretName
+	k8sSecret.Labels[dockhand.DockhandSecretLabelKey] = secret.SecretSpec.Name
 
 	for k, v := range secret.Data {
 		secretData, err := dockcmdCommon.ParseSecretsTemplate([]byte(v), h.funcMap)
@@ -150,7 +168,7 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 		h.secrets.Update(k8sSecret)
 	}
 
-	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + secret.SecretName
+	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + secret.SecretSpec.Name
 
 	daemonsets, err := h.daemonSets.List(secret.Namespace, metav1.ListOptions{
 		LabelSelector: labelSelector,
@@ -285,9 +303,9 @@ func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
 			aws.AccessKeyID = *profile.AwsSecretsManager.AccessKeyId
 		}
 		if profile.AwsSecretsManager.SecretAccessKeyRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, *profile.AwsSecretsManager.SecretAccessKeyRef, metav1.GetOptions{})
+			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.AwsSecretsManager.SecretAccessKeyRef.Name, metav1.GetOptions{})
 			if secretData != nil {
-				aws.SecretAccessKey = string(secretData.Data["AWS_SECRET_ACCESS_KEY"])
+				aws.SecretAccessKey = string(secretData.Data[profile.AwsSecretsManager.SecretAccessKeyRef.Key])
 			}
 		}
 		if aws.AccessKeyID != "" && aws.SecretAccessKey != "" {
@@ -304,9 +322,9 @@ func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
 		}
 
 		if profile.AzureKeyVault.ClientSecretRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, *profile.AzureKeyVault.ClientSecretRef, metav1.GetOptions{})
+			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.AzureKeyVault.ClientSecretRef.Name, metav1.GetOptions{})
 			if secretData != nil {
-				azure.ClientSecret = string(secretData.Data["AZURE_CLIENT_SECRET"])
+				azure.ClientSecret = string(secretData.Data[profile.AzureKeyVault.ClientSecretRef.Key])
 			}
 		}
 		_ = os.Setenv("AZURE_TENANT_ID", azure.TenantID)
@@ -317,10 +335,10 @@ func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
 	if profile.GcpSecretsManager != nil {
 		gcp.Project = profile.GcpSecretsManager.Project
 		if profile.GcpSecretsManager.CredentialsFileSecretRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, *profile.GcpSecretsManager.CredentialsFileSecretRef, metav1.GetOptions{})
+			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.GcpSecretsManager.CredentialsFileSecretRef.Name, metav1.GetOptions{})
 
 			if secretData != nil {
-				gcp.CredentialsJson = secretData.Data["gcp-credentials.json"]
+				gcp.CredentialsJson = secretData.Data[profile.GcpSecretsManager.CredentialsFileSecretRef.Key]
 			}
 		}
 	}
@@ -331,13 +349,13 @@ func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
 			vault.RoleID = *profile.Vault.RoleId
 		}
 		if profile.Vault.SecretIdRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, *profile.Vault.SecretIdRef, metav1.GetOptions{})
+			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.Vault.SecretIdRef.Name, metav1.GetOptions{})
 			if secretData != nil {
 				vault.SecretID = string(secretData.Data["VAULT_SECRET_ID"])
 			}
 		}
 		if profile.Vault.TokenRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, *profile.Vault.TokenRef, metav1.GetOptions{})
+			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.Vault.TokenRef.Key, metav1.GetOptions{})
 			if secretData != nil {
 				vault.Token = string(secretData.Data["VAULT_TOKEN"])
 			}

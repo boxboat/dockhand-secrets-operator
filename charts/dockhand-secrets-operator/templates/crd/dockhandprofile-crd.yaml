@@ -44,9 +44,18 @@ spec:
                   description: |-
                     AWS IAM Access Key
                 secretAccessKeyRef:
-                  type: string
+                  type: object
                   description: |-
                     Name of secret containing AWS IAM Secret Access Key in a key named AWS_SECRET_ACCES_KEY
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing AWS IAM Secret Access Key
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing the AWS IAM Secret Access Key
             azureKeyVault:
               type: object
               description: |-
@@ -70,9 +79,18 @@ spec:
                   description: |-
                     Azure Client ID to access the Key Vault
                 clientSecretRef:
-                  type: string
+                  type: object
                   description: |-
-                    Name of secret containing the Azure Client Secret in a key named AZURE_CLIENT_SECRET
+                    Reference to Azure Client Secret
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing Azure Client Secret
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing the Azure Client Secret
                 keyVault:
                   type: string
                   description: |-
@@ -93,9 +111,18 @@ spec:
                   description: |-
                     The GCP Project to reference for this profile
                 credentialsFileSecretRef:
-                  type: string
+                  type: object
                   description: |-
-                    Secret containing JSON credentials file stored in a key named gcp-credentials.json
+                    Secret Reference containing JSON credentials file stored in a key named gcp-credentials.json
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing GCP JSON Credentials
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing GCP JSON Credentials
             vault:
               type: object
               description: |-
@@ -119,10 +146,28 @@ spec:
                   description: |-
                     Vault Role ID
                 secretIdRef:
-                  type: string
+                  type: object
                   description: |-
-                    Name of secret containing the Vault secretId in a key named VAULT_SECRET_ID
+                    Reference to secret containing the Vault secretId
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing Vault secretId
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing Vault secretId
                 tokenRef:
-                  type: string
+                  type: object
                   description: |-
-                    Name of secret containing the Vault Token in a key named VAULT_TOKEN
+                    Reference to secret containing the Vault Token
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing Vault Token
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing Vault Token
