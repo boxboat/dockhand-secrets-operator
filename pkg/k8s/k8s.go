@@ -48,11 +48,10 @@ type PatchOperation struct {
 
 const certRenewalTime = 30
 
-
-func CopyStringMap(source map[string]string) map[string]string{
+func CopyStringMap(source map[string]string) map[string]string {
 
 	copy := make(map[string]string)
-	for k,v := range source {
+	for k, v := range source {
 		copy[k] = v
 	}
 	return copy
@@ -76,7 +75,6 @@ func GetDockhandSecretsListFromK8sSecrets(ctx context.Context, secretNames []str
 			}
 		}
 	}
-	common.Log.Infof("adding dockhand secrets[%s]", strings.Join(dhSecrets, ","))
 	return dhSecrets, nil
 
 }
@@ -279,8 +277,15 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 
 func GenerateMetadataLabelsPatch(target map[string]string, added map[string]string) (patch []PatchOperation) {
 	for key, value := range added {
-		if target == nil || target[key] == "" {
+		if target == nil {
 			target = map[string]string{}
+			target[key] = value
+			patch = append(patch, PatchOperation{
+				Op:    "add",
+				Path:  "/metadata/labels",
+				Value: target,
+			})
+		} else if target[key] == "" {
 			patch = append(patch, PatchOperation{
 				Op:    "add",
 				Path:  "/metadata/labels/" + strings.ReplaceAll(key, "/", "~1"),
@@ -306,9 +311,17 @@ func GenerateMetadataLabelsPatch(target map[string]string, added map[string]stri
 }
 
 func GenerateSpecTemplateAnnotationPatch(target map[string]string, added map[string]string) (patch []PatchOperation) {
+
 	for key, value := range added {
-		if target == nil || target[key] == "" {
+		if target == nil {
 			target = map[string]string{}
+			target[key] = value
+			patch = append(patch, PatchOperation{
+				Op:    "add",
+				Path:  "/spec/template/metadata/annotations",
+				Value: target,
+			})
+		} else if target[key] == "" {
 			patch = append(patch, PatchOperation{
 				Op:    "add",
 				Path:  "/spec/template/metadata/annotations/" + strings.ReplaceAll(key, "/", "~1"),
