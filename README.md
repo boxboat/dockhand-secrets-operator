@@ -43,7 +43,6 @@ vault:
   addr: http://vault:8200
   tokenRef: dockhand-profile-secrets
 ---
----
 apiVersion: v1
 kind: Secret
 type: Opaque
@@ -62,14 +61,20 @@ data:
 
 Note that GCP and Azure have 2 forms of supported secrets `text` or `json`. The text version will return the entire secret stored in the key/value where as the json version will interpret the stored value as `json` and allow you retrieve a single `key` in the secret.
 
+The `DockhandSecret` will generate a secret in the same namespace specified by `secretName`. Changes to a `DockhandSecret` will trigger a refresh of the `Secret` manged by that `DockhandSecret`
+
+The `cacheTTL` field allows you to control how long a Secrets Manager response is cached by the operator. The default is 60 seconds which prevents the `dockhand-secrets-operator` from abusing the Secrets Backend.
+
+The `dockhandProfile` field allows you to specify different `DockhandProfiles`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
+
 ```yaml
 ---
 apiVersion: dockhand.boxboat.io/v1alpha1
 kind: DockhandSecret
 metadata:
-  name: test-dockhand-secret-aws
-dockhandProfile: test-dockhand-profile
-secretName: test-secret-aws
+  name: dockhand-example-secret
+dockhandProfile: dockhand-profile
+secretName: example-secret
 data:
   aws-alpha: << (aws "dockcmd-test" "alpha") >>
   aws-bravo: << (aws "dockcmd-test" "bravo") >>
@@ -91,4 +96,13 @@ If you are using `DockhandSecrets` in a Helm chart and you simply want to retrie
 ```yaml
 annotations:
   updateTimestamp: {{ now | date "20060102150405" }}
+```
+
+### Auto Updates
+For `DaemonSets`, `Deployments` and `StatefulSets` you can insert the following label, which make the `dockhand-secrets-operator` auto roll those types when a `DockhandSecret` updates the `Secret` it owns.
+
+```yaml
+metadata:
+  labels:
+    dockhand.boxboat.io/autoUpdate: "true"
 ```
