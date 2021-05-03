@@ -1,7 +1,5 @@
 apiVersion: v2
 name: dockhand-secrets-operator
-
 description: A Helm chart to install the dockhand-secrets-operator
 type: application
-
 version: 0.1.0
