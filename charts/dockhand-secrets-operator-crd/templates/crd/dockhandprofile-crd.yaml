@@ -4,7 +4,6 @@ metadata:
   name: dockhandprofiles.dockhand.boxboat.io
   labels:
     app.kubernetes.io/name: dockhandprofiles.dockhand.boxboat.io
-    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
 spec:
   group: dockhand.boxboat.io
   scope: Namespaced
