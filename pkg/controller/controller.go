@@ -32,8 +32,13 @@ import (
 	corecontrollers "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/tools/record"
 	"os"
 	"sort"
 	"strings"
@@ -52,11 +57,13 @@ type Handler struct {
 	statefulSets              appscontrollers.StatefulSetClient
 	secrets                   corecontrollers.SecretClient
 	funcMap                   template.FuncMap
+	recorder                  record.EventRecorder
 }
 
 func Register(
 	ctx context.Context,
 	namespace string,
+	events typedcorev1.EventInterface,
 	daemonsets appscontrollers.DaemonSetController,
 	deployments appscontrollers.DeploymentController,
 	statefulsets appscontrollers.StatefulSetController,
@@ -66,7 +73,7 @@ func Register(
 	funcMap template.FuncMap) {
 
 	h := &Handler{
-		ctx:                       ctx,
+		ctx: ctx,
 		operatorNamespace:         namespace,
 		daemonSets:                daemonsets,
 		deployments:               deployments,
@@ -76,15 +83,28 @@ func Register(
 		secrets:                   secrets,
 		statefulSets:              statefulsets,
 		funcMap:                   funcMap,
+		recorder:         buildEventRecorder(events),
 	}
 
 	// Register handlers
 	dockhandSecrets.OnChange(ctx, "dockhandsecret-onchange", h.onDockhandSecretChange)
 	dockhandSecrets.OnRemove(ctx, "dockhandsecret-onremove", h.onDockhandSecretRemove)
-	daemonsets.OnChange(ctx, "daemonsets-handler", h.onDaemonSetChange)
-	deployments.OnChange(ctx, "deployment-handler", h.onDeploymentChange)
-	statefulsets.OnChange(ctx, "daemonsets-handler", h.onStatefulSetChange)
+	daemonsets.OnChange(ctx, "daemonsets-onchange", h.onDaemonSetChange)
+	deployments.OnChange(ctx, "deployment-onchange", h.onDeploymentChange)
+	statefulsets.OnChange(ctx, "statefulsets-onchange", h.onStatefulSetChange)
 
+}
+
+func buildEventRecorder(events typedcorev1.EventInterface) record.EventRecorder {
+	// Create event broadcaster
+	// Add dockhand controller types to the default Kubernetes Scheme so Events can be
+	// logged for dockhand controller types.
+	utilruntime.Must(dockhand.AddToScheme(scheme.Scheme))
+	common.Log.Info("Creating event broadcaster")
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartLogging(common.Log.Infof)
+	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: events})
+	return eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "dockhand-secrets-operator"})
 }
 
 func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.DockhandSecret) (*dockhand.DockhandSecret, error) {
@@ -118,14 +138,14 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 	k8sSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{})
 
 	newSecret := false
-	if err != nil {
+	if errors.IsNotFound(err) {
 		newSecret = true
 		k8sSecret = &corev1.Secret{
 			Type: corev1.SecretType(secret.SecretSpec.Type),
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      secret.SecretSpec.Name,
-				Namespace: secret.Namespace,
-				Labels:    make(map[string]string),
+				Name:        secret.SecretSpec.Name,
+				Namespace:   secret.Namespace,
+				Labels:      make(map[string]string),
 				Annotations: make(map[string]string),
 			},
 			Data: make(map[string][]byte),
@@ -140,13 +160,13 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 	}
 
 	if secret.SecretSpec.Labels != nil {
-		for k,v := range secret.SecretSpec.Labels{
+		for k, v := range secret.SecretSpec.Labels {
 			k8sSecret.Labels[k] = v
 		}
 	}
 
 	if secret.SecretSpec.Annotations != nil {
-		for k,v := range secret.SecretSpec.Annotations{
+		for k, v := range secret.SecretSpec.Annotations {
 			k8sSecret.Annotations[k] = v
 		}
 	}
@@ -157,15 +177,25 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 	for k, v := range secret.Data {
 		secretData, err := dockcmdCommon.ParseSecretsTemplate([]byte(v), h.funcMap)
 		if err != nil {
-			///TODO update dockhand secret status and try secret again later
+			h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrParsingSecret", "Could not parse template %v", err)
+			return nil, err
 		}
 		common.Log.Debugf("%s: %s", k, secretData)
 		k8sSecret.Data[k] = secretData
 	}
+
 	if newSecret {
-		h.secrets.Create(k8sSecret)
+		if _, err := h.secrets.Create(k8sSecret); err == nil {
+			h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s created", secret.Namespace, secret.SecretSpec.Name)
+		} else {
+			return nil, err
+		}
 	} else {
-		h.secrets.Update(k8sSecret)
+		if _, err := h.secrets.Update(k8sSecret); err == nil{
+			h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s updated", secret.Namespace, secret.SecretSpec.Name)
+		} else {
+			return nil, err
+		}
 	}
 
 	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + secret.SecretSpec.Name

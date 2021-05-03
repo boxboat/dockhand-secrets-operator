@@ -32,6 +32,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"k8s.io/client-go/kubernetes"
 	"text/template"
 )
 
@@ -107,10 +108,12 @@ var startOperatorCmd = &cobra.Command{
 		apps := apps.NewFactoryFromConfigOrDie(cfg)
 		core := core.NewFactoryFromConfigOrDie(cfg)
 		dh := dockhand.NewFactoryFromConfigOrDie(cfg)
+		kubeClient := kubernetes.NewForConfigOrDie(cfg)
 
 		controller.Register(
 			cmd.Context(),
 			operatorArgs.Namespace,
+			kubeClient.CoreV1().Events(""),
 			apps.Apps().V1().DaemonSet(),
 			apps.Apps().V1().Deployment(),
 			apps.Apps().V1().StatefulSet(),

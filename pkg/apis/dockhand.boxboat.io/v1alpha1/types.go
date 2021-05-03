@@ -91,8 +91,6 @@ type DockhandSecret struct {
 	Data            map[string]string `json:"data"`
 	SecretSpec      SecretSpec        `json:"secretSpec"`
 	DockhandProfile string            `json:"dockhandProfile"`
-
-	Status DockhandSecretStatus `json:"status"`
 }
 
 // SecretSpec defines the kubernetes secret data to use for the secret managed by a DockhandSecret
@@ -101,7 +99,4 @@ type SecretSpec struct {
 	Type        string            `json:"type"`
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
-}
-
-type DockhandSecretStatus struct {
 }
