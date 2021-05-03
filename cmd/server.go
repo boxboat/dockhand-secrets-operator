@@ -48,11 +48,14 @@ func runServer(ctx context.Context) {
 	var err error
 	tlsPair := tls.Certificate{}
 	if serverArgs.selfSignCerts {
-		tlsPair = k8s.GetServiceCertificate(ctx, serverArgs.serviceName, serverArgs.serviceNamespace)
-		k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName + ".dockhand.boxboat.io", serverArgs.serviceNamespace)
+		tlsPair, err = k8s.GetServiceCertificate(ctx, serverArgs.serviceName, serverArgs.serviceNamespace)
+		common.ExitIfError(err)
+		if err := k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName + ".dockhand.boxboat.io", serverArgs.serviceNamespace); err != nil {
+			common.ExitIfError(err)
+		}
 	} else {
 		tlsPair, err = tls.LoadX509KeyPair(serverArgs.serverCert, serverArgs.serverKey)
-		common.HandleError(err)
+		common.ExitIfError(err)
 	}
 
 	server := &webhook.Server{
@@ -71,7 +74,7 @@ func runServer(ctx context.Context) {
 
 	go func() {
 		if err := server.Server.ListenAndServeTLS("", ""); err != nil {
-			common.HandleError(err)
+			common.ExitIfError(err)
 		}
 	}()
 
