@@ -32,6 +32,7 @@ import (
 	"github.com/gobuffalo/packr/v2/file/resolver/encoding/hex"
 	certv1beta1 "k8s.io/api/certificates/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -59,15 +60,19 @@ func CopyStringMap(source map[string]string) map[string]string {
 
 func GetDockhandSecretsListFromK8sSecrets(ctx context.Context, secretNames []string, namespace string) ([]string, error) {
 	config, err := rest.InClusterConfig()
-	common.HandleError(err)
+	if err != nil {
+		return nil, err
+	}
 	clientset, err := kubernetes.NewForConfig(config)
-	common.HandleError(err)
+	if err != nil {
+		return nil, err
+	}
 
 	secretClient := clientset.CoreV1().Secrets(namespace)
 
 	var dhSecrets []string
 	for _, secretName := range secretNames {
-		if secret, err := secretClient.Get(ctx, secretName, metav1.GetOptions{}); err == nil {
+		if secret, err := secretClient.Get(ctx, secretName, metav1.GetOptions{}); !errors.IsNotFound(err) {
 			if secret.Labels != nil {
 				if val, ok := secret.Labels[dockhandv1alpha1.DockhandSecretLabelKey]; ok {
 					dhSecrets = append(dhSecrets, val)
@@ -82,9 +87,13 @@ func GetDockhandSecretsListFromK8sSecrets(ctx context.Context, secretNames []str
 // GetSecretsChecksum takes a set of secrets in a namespace and returns a checksum of all of the data in those secrets
 func GetSecretsChecksum(ctx context.Context, names []string, namespace string) (string, error) {
 	config, err := rest.InClusterConfig()
-	common.HandleError(err)
+	if err != nil {
+		return "", err
+	}
 	clientset, err := kubernetes.NewForConfig(config)
-	common.HandleError(err)
+	if err != nil {
+		return "", err
+	}
 
 	// sort the names to ensure the checksum doesn't change
 	sort.Strings(names)
@@ -112,37 +121,52 @@ func GetSecretsChecksum(ctx context.Context, names []string, namespace string) (
 }
 
 // UpdateCABundleForWebhook updates the CA Bundle
-func UpdateCABundleForWebhook(ctx context.Context, name string, namespace string) {
+func UpdateCABundleForWebhook(ctx context.Context, name string, namespace string) error {
 	config, err := rest.InClusterConfig()
-	common.HandleError(err)
+	if err != nil {
+		return err
+	}
 	clientset, err := kubernetes.NewForConfig(config)
-	common.HandleError(err)
+	if err != nil {
+		return err
+	}
 
 	webhookClient := clientset.AdmissionregistrationV1().MutatingWebhookConfigurations()
 	webhook, err := webhookClient.Get(ctx, name, metav1.GetOptions{})
-	common.HandleError(err)
+	if err != nil {
+		return err
+	}
 
 	secretsClient := clientset.CoreV1().Secrets(namespace)
 	secrets, err := secretsClient.List(ctx, metav1.ListOptions{})
-	common.HandleError(err)
+	if err != nil {
+		return err
+	}
 	for _, secret := range secrets.Items {
 		if secret.Annotations["kubernetes.io/service-account.name"] == "default" {
 			if len(webhook.Webhooks) > 0 && webhook.Webhooks[0].Name == name {
 				webhook.Webhooks[0].ClientConfig.CABundle = secret.Data["ca.crt"]
 				_, err := webhookClient.Update(context.Background(), webhook, metav1.UpdateOptions{})
-				common.HandleError(err)
+				if err != nil {
+					return err
+				}
 			}
 			break
 		}
 	}
+	return nil
 }
 
 // GetServiceCertificate for service and namespace.
-func GetServiceCertificate(ctx context.Context, name string, namespace string) tls.Certificate {
+func GetServiceCertificate(ctx context.Context, name string, namespace string) (tls.Certificate, error) {
 	config, err := rest.InClusterConfig()
-	common.HandleError(err)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
 	clientset, err := kubernetes.NewForConfig(config)
-	common.HandleError(err)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
 
 	nameDotNamespace := name + "." + namespace
 	fullName := nameDotNamespace + ".svc"
@@ -156,7 +180,9 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 			common.Log.Infof("CSR[%s] exists", existingCsr.Name)
 			block, _ := pem.Decode(existingCsr.Status.Certificate)
 			cert, err := x509.ParseCertificate(block.Bytes)
-			common.HandleError(err)
+			if err != nil {
+				return tls.Certificate{}, err
+			}
 
 			validForDays := int(cert.NotAfter.Sub(time.Now()).Hours() / 24)
 			common.Log.Infof("CSR[%s] status: valid for %d days", existingCsr.Name, validForDays)
@@ -168,12 +194,13 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 			} else {
 				secretClient := clientset.CoreV1().Secrets(namespace)
 				certificateSecret, err := secretClient.Get(ctx, existingCsr.Name, metav1.GetOptions{})
-				common.HandleError(err)
 				if err == nil {
 					common.Log.Infof("CSR[%s] status: returning existing certificate", existingCsr.Name)
 					keyPair, err := tls.X509KeyPair(certificateSecret.Data["tls.crt"], certificateSecret.Data["tls.key"])
-					common.HandleError(err)
-					return keyPair
+					if err != nil {
+						return tls.Certificate{}, err
+					}
+					return keyPair, nil
 				}
 			}
 		} else {
@@ -182,7 +209,9 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 	}
 
 	serverPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	common.HandleError(err)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
 
 	template := x509.CertificateRequest{
 		Subject: pkix.Name{
@@ -192,7 +221,9 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 	}
 
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &template, serverPrivateKey)
-	common.HandleError(err)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
 
 	clientCSRPem := new(bytes.Buffer)
 	_ = pem.Encode(
@@ -214,7 +245,9 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 	}
 
 	csr, err := csrClient.Create(ctx, newCsr, metav1.CreateOptions{})
-	common.HandleError(err)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
 	csr.Status.Conditions = append(csr.Status.Conditions, certv1beta1.CertificateSigningRequestCondition{
 		Type:           certv1beta1.CertificateApproved,
 		Message:        "CSR approved by envoy-spire-mutating-webhook",
@@ -228,7 +261,7 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 	for {
 		if attempt < 5 {
 			res, err := csrClient.Get(ctx, csr.Name, metav1.GetOptions{})
-			common.HandleError(err)
+			common.LogIfError(err)
 			if res.Status.Certificate != nil {
 				csr = res
 				common.Log.Infof("CSR[%s] status: certificate issued", csr.Name)
@@ -237,7 +270,7 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 			common.Log.Infof("CSR[%s] status: not issued yet retrying", csr.Name)
 			time.Sleep(1 * time.Second)
 		} else {
-			common.HandleError(fmt.Errorf("CSR[%v] not found backed off after 5th attempt", csr.Name))
+			return tls.Certificate{}, fmt.Errorf("CSR[%v] not found backed off after 5th attempt", csr.Name)
 		}
 		attempt += 1
 	}
@@ -261,18 +294,22 @@ func GetServiceCertificate(ctx context.Context, name string, namespace string) t
 	}
 
 	_, err = clientset.CoreV1().Secrets(namespace).Update(ctx, tlsSecret, metav1.UpdateOptions{})
-	if err != nil {
+	if errors.IsNotFound(err) {
 		_, err = clientset.CoreV1().Secrets(namespace).Create(ctx, tlsSecret, metav1.CreateOptions{})
-		common.HandleError(err)
+		if err != nil {
+			return tls.Certificate{}, err
+		}
 		common.Log.Infof("Created secret[%s]", tlsSecret.Name)
 	} else {
 		common.Log.Infof("Updated secret[%s]", tlsSecret.Name)
 	}
 
 	keyPair, err := tls.X509KeyPair(serverCert, serverPrivateKeyPEM.Bytes())
-	common.HandleError(err)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
 
-	return keyPair
+	return keyPair, nil
 }
 
 func GenerateMetadataLabelsPatch(target map[string]string, added map[string]string) (patch []PatchOperation) {

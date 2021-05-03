@@ -5,7 +5,9 @@ Secrets management with GitOps can be challenging in Kubernetes environments. Of
 
 The Dockhand Secrets Operator solves that problem by allowing you to make arbitrary secrets in a familiar way with only the secret bits stored in the backend(s) of your choice - AWS Secrets Manager, Azure Key Vault, GCP Secrets Manager or Vault. Secret references can be stored in git with your Helm chart or Kubernetes manifests. 
 
-The operator supports auto rolling updates for `Deployments`, `StatefulSets` and `DaemonSets` through the use of a single `label` added to the metadata of those items. The operator accomplishes this by injecting an annotation with the checksum of the `Secrets` referenced in those manifests and will update that checksum annotation automatically when the secret changes. 
+The operator supports auto rolling updates for `Deployments`, `StatefulSets` and `DaemonSets` through the use of a single `label` added to the metadata of those items. The operator accomplishes this by injecting an annotation with the checksum of the `Secrets` referenced in those manifests and will update that checksum annotation automatically when the secret changes.
+
+The operator installation deploys the CRDs, the operator and a mutating webhook controller to provide auto updates for types mentioned above.
 
 # ⚠️ Development Note
 Please be aware that until `0.1.0` is released, some changes may occur to the structure of the CRDs.
@@ -21,6 +23,9 @@ Please be aware that until `0.1.0` is released, some changes may occur to the st
 
 #### DockhandProfile
 Example of how to create a `DockhandProfile`
+
+The `cacheTTL` field allows you to control how long a Secrets Manager response is cached by the operator. The default is 60 seconds which prevents the `dockhand-secrets-operator` from abusing the Secrets Backend.
+
 ```yaml
 ---
 apiVersion: dockhand.boxboat.io/v1alpha1
@@ -74,9 +79,7 @@ data:
 
 Note that GCP and Azure have 2 forms of supported secrets `text` or `json`. The text version will return the entire secret stored in the key/value where as the json version will interpret the stored value as `json` and allow you retrieve a single `key` in the secret.
 
-The `DockhandSecret` will generate a secret in the same namespace specified by `secretName`. Changes to a `DockhandSecret` will trigger a refresh of the `Secret` manged by that `DockhandSecret`
-
-The `cacheTTL` field allows you to control how long a Secrets Manager response is cached by the operator. The default is 60 seconds which prevents the `dockhand-secrets-operator` from abusing the Secrets Backend.
+The `DockhandSecret` will generate a secret of type `secretSpec.type` in the same namespace specified by `secretSpec.name`. Changes to a `DockhandSecret` will trigger a refresh of the `Secret` managed by that `DockhandSecret`. You can optionally have labels or annotations injected on the `Secret` created by the `DockhandSecret`.
 
 The `dockhandProfile` field allows you to specify different `DockhandProfiles`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
 
@@ -113,7 +116,7 @@ data:
   vault-charlie: << (vault "secret/dockcmd-test?version=1" "charlie" ) | squote >>
 ```
 
-If you are using `DockhandSecrets` in a Helm chart and you simply want to retrieve the latest version of the secret everytime helm is executed, place an annotation on the `DockhandSecret` that generates a timestamp - this will trigger the operator to handle a `DockhandSecret` change.
+If you are using `DockhandSecrets` in a Helm chart, and you simply want to retrieve the latest version of the secret everytime helm is executed, place an annotation on the `DockhandSecret` that generates a timestamp - this will trigger the operator to handle a `DockhandSecret` change.
 ```yaml
 annotations:
   updateTimestamp: {{ now | date "20060102150405" }}
