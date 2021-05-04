@@ -11,6 +11,7 @@ metadata:
 rules:
   - apiGroups: [ "*" ]
     resources:
+      - events
       - secrets
       - daemonsets
       - deployments
