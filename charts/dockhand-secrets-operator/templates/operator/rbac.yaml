@@ -9,9 +9,10 @@ kind: ClusterRole
 metadata:
   name: {{ include "dockhand-secrets-operator.name" . }}-sa-cluster-role
 rules:
-  - apiGroups: [ "" ]
+  - apiGroups: [ "*" ]
     resources:
       - secrets
+      - daemonsets
       - deployments
       - statefulsets
       - dockhandsecrets
@@ -22,6 +23,7 @@ rules:
       - patch
       - update
       - list
+      - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
