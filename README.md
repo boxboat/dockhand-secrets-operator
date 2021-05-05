@@ -7,7 +7,7 @@ The Dockhand Secrets Operator solves that problem by allowing you to make arbitr
 
 The operator supports auto rolling updates for `Deployments`, `StatefulSets` and `DaemonSets` through the use of a single `label` added to the metadata of those items. The operator accomplishes this by injecting an annotation with the checksum of the `Secrets` referenced in those manifests and will update that checksum annotation automatically when the secret changes.
 
-The operator installation deploys the CRDs, the operator and a mutating webhook controller to provide auto updates for types mentioned above.
+The operator installation deploys the CRDs, the controller and a mutating webhook to provide auto updates for types mentioned above.
 
 # ⚠️ Development Note
 Please be aware that until `0.1.0` is released, some changes may occur to the structure of the CRDs.
@@ -34,14 +34,14 @@ metadata:
   name: test-dockhand-profile
   namespace: dockhand-secrets-operator
 awsSecretsManager:
-  cacheTTL: 60
+  cacheTTL: 60s
   region: us-east-1
   accessKeyId: <accessKeyId>
   secretAccessKeyRef:
     name: dockhand-profile-secrets
     key: aws-secret-access-key
 azureKeyVault:
-  cacheTTL: 60
+  cacheTTL: 60s
   keyVault: dockcmd
   tenant: <tenantId>
   clientId: <clientId>
@@ -49,13 +49,13 @@ azureKeyVault:
     name: dockhand-profile-secrets
     key: azure-client-secret
 gcpSecretsManager:
-  cacheTTL: 60
+  cacheTTL: 60s
   project: myproject
   credentialsFileSecretRef:
     name: dockhand-profile-secrets
     key: gcp-credentials.json
 vault:
-  cacheTTL: 60
+  cacheTTL: 60s
   addr: http://vault:8200
   tokenRef:
     name: dockhand-profile-secrets
