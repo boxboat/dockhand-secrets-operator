@@ -30,10 +30,10 @@ spec:
                     - region
               properties:
                 cacheTTL:
-                  type: integer
-                  default: 60
+                  type: string
+                  default: 60s
                   description: |-
-                    Number of seconds to cache secret responses
+                    Duration to cache secret responses
                 region:
                   type: string
                   description: |-
@@ -65,10 +65,10 @@ spec:
                     - keyVault
               properties:
                 cacheTTL:
-                  type: integer
-                  default: 60
+                  type: string
+                  default: 60s
                   description: |-
-                    Number of seconds to cache secret responses
+                    Duration to cache secret responses
                 tenant:
                   type: string
                   description: |-
@@ -101,10 +101,10 @@ spec:
                 from GCP. Authentication can be Application Default Credentials or by providing a key.json
               properties:
                 cacheTTL:
-                  type: integer
-                  default: 60
+                  type: string
+                  default: 60s
                   description: |-
-                    Number of seconds to cache secret responses
+                    Duration to cache secret responses
                 project:
                   type: string
                   description: |-
@@ -132,10 +132,10 @@ spec:
                     - addr
               properties:
                 cacheTTL:
-                  type: integer
-                  default: 60
+                  type: string
+                  default: 60s
                   description: |-
-                    Number of seconds to cache secret responses
+                    Duration to cache secret responses
                 addr:
                   type: string
                   description: |-

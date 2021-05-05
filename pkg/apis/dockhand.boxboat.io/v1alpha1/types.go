@@ -36,7 +36,7 @@ type SecretRef struct {
 
 // AwsSecretsManager specifies the configuration for accessing AWS Secrets.
 type AwsSecretsManager struct {
-	CacheTTL           int        `json:"cacheTTL"`
+	CacheTTL           string     `json:"cacheTTL"`
 	Region             string     `json:"region"`
 	AccessKeyId        *string    `json:"accessKeyId,omitempty"`
 	SecretAccessKeyRef *SecretRef `json:"secretAccessKeyRef,omitempty"`
@@ -44,7 +44,7 @@ type AwsSecretsManager struct {
 
 // AzureKeyVault specifies the configuration for accessing Azure Key Vault secrets.
 type AzureKeyVault struct {
-	CacheTTL        int        `json:"cacheTTL"`
+	CacheTTL        string     `json:"cacheTTL"`
 	Tenant          string     `json:"tenant"`
 	ClientId        *string    `json:"clientId,omitempty"`
 	ClientSecretRef *SecretRef `json:"clientSecretRef,omitempty"`
@@ -52,14 +52,14 @@ type AzureKeyVault struct {
 }
 
 type GcpSecretsManager struct {
-	CacheTTL                 int        `json:"cacheTTL"`
+	CacheTTL                 string     `json:"cacheTTL"`
 	Project                  string     `json:"project"`
 	CredentialsFileSecretRef *SecretRef `json:"credentialsFileSecretRef"`
 }
 
 // Vault specifies the configuration for accessing Vault secrets.
 type Vault struct {
-	CacheTTL    int        `json:"cacheTTL"`
+	CacheTTL    string     `json:"cacheTTL"`
 	Addr        string     `json:"addr"`
 	RoleId      *string    `json:"roleId,omitempty"`
 	SecretIdRef *SecretRef `json:"secretIdRef,omitempty"`
