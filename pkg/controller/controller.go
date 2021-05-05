@@ -43,6 +43,7 @@ import (
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 )
 
 // Handler is the controller implementation for DockhandSecret Resources
@@ -328,6 +329,11 @@ func (h *Handler) onStatefulSetChange(_ string, statefulset *v1.StatefulSet) (*v
 
 func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
 	if profile.AwsSecretsManager != nil {
+		var err error
+		if aws.CacheTTL, err = time.ParseDuration(profile.AwsSecretsManager.CacheTTL); err != nil{
+			return err
+		}
+
 		aws.Region = profile.AwsSecretsManager.Region
 		if profile.AwsSecretsManager.AccessKeyId != nil {
 			aws.AccessKeyID = *profile.AwsSecretsManager.AccessKeyId
@@ -344,6 +350,10 @@ func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
 	}
 
 	if profile.AzureKeyVault != nil {
+		var err error
+		if azure.CacheTTL, err = time.ParseDuration(profile.AzureKeyVault.CacheTTL); err != nil{
+			return err
+		}
 		azure.KeyVaultName = profile.AzureKeyVault.KeyVault
 		azure.TenantID = profile.AzureKeyVault.Tenant
 
@@ -363,6 +373,10 @@ func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
 	}
 
 	if profile.GcpSecretsManager != nil {
+		var err error
+		if gcp.CacheTTL, err = time.ParseDuration(profile.GcpSecretsManager.CacheTTL); err != nil{
+			return err
+		}
 		gcp.Project = profile.GcpSecretsManager.Project
 		if profile.GcpSecretsManager.CredentialsFileSecretRef != nil {
 			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.GcpSecretsManager.CredentialsFileSecretRef.Name, metav1.GetOptions{})
@@ -374,6 +388,10 @@ func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
 	}
 
 	if profile.Vault != nil {
+		var err error
+		if vault.CacheTTL, err = time.ParseDuration(profile.Vault.CacheTTL); err != nil{
+			return err
+		}
 		vault.Addr = profile.Vault.Addr
 		if profile.Vault.RoleId != nil {
 			vault.RoleID = *profile.Vault.RoleId
