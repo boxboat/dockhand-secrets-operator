@@ -105,7 +105,7 @@ func init() {
 	startServerCmd.Flags().StringVar(
 		&serverArgs.serviceName,
 		"name",
-		"dockhand-secrets-operator-controller",
+		"dockhand-secrets-operator-webhook",
 		"kubernetes service name")
 
 	startServerCmd.Flags().StringVar(

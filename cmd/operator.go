@@ -80,9 +80,9 @@ func startOperatorCmdPersistentPreRunE(cmd *cobra.Command, args []string) error 
 }
 
 var startOperatorCmd = &cobra.Command{
-	Use:               "operator",
-	Short:             "operator start",
-	Long:              `start the operator with the provided settings`,
+	Use:               "controller",
+	Short:             "controller start",
+	Long:              `start the operator controller with the provided settings`,
 	PersistentPreRunE: startOperatorCmdPersistentPreRunE,
 	Run: func(cmd *cobra.Command, args []string) {
 
@@ -186,7 +186,7 @@ func init() {
 		"",
 		"",
 		"Azure tenant ID can alternatively be set using ${AZURE_TENANT_ID}")
-	viper.BindEnv("tenant", "AZURE_TENANT_ID")
+	_ = viper.BindEnv("tenant", "AZURE_TENANT_ID")
 
 	startOperatorCmd.PersistentFlags().StringVarP(
 		&azure.ClientID,

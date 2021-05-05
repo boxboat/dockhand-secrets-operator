@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "dockhand-secrets-operator.name" . }}-webhook
+  labels:
+    app.kubernetes.io/name: {{ include "dockhand-secrets-operator.name" . }}-webhook
+    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.webhook.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "dockhand-secrets-operator.name" . }}-webhook
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "dockhand-secrets-operator.name" . }}-webhook
+    spec:
+      serviceAccountName: {{ include "dockhand-secrets-operator.name" . }}-webhook-sa
+      containers:
+        - name: webhook
+          image: "{{ tpl .Values.webhook.image.repository . }}:{{ tpl .Values.webhook.image.tag . }}"
+          imagePullPolicy: {{ .Values.webhook.image.pullPolicy }}
+          args:
+            - server
+            - --name
+            - {{ include "dockhand-secrets-operator.name" . }}-webhook
+            - --namespace
+            - {{ .Release.Namespace }}
+          ports:
+              - containerPort: 8443
+                name: https
+          resources:
+            {{- if .Values.webhook.resources }}
+              {{- toYaml .Values.webhook.resources | nindent 12 }}
+              {{- end }}

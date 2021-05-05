@@ -17,19 +17,17 @@ spec:
     spec:
       serviceAccountName: {{ include "dockhand-secrets-operator.name" . }}-controller-sa
       containers:
-          - name: controller
-            image: "{{ tpl .Values.controller.image.repository . }}:{{ tpl .Values.controller.image.tag . }}"
-            imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
-            args:
-              - server
-              - --name
-              - {{ include "dockhand-secrets-operator.name" . }}-controller
-              - --namespace
-              - {{ .Release.Namespace }}
-            ports:
-                - containerPort: 8443
-                  name: https
-            resources:
-              {{- if .Values.controller.resources }}
-                {{- toYaml .Values.controller.resources | nindent 12 }}
-                {{- end }}
+        - name: controller
+          image: "{{ tpl .Values.controller.image.repository . }}:{{ tpl .Values.controller.image.tag . }}"
+          imagePullPolicy: {{ .Values.controller.image.pullPolicy }}
+          args:
+            - controller
+            - --namespace
+            - {{ .Release.Namespace }}
+          ports:
+              - containerPort: 8443
+                name: https
+          resources:
+            {{- if .Values.controller.resources }}
+              {{- toYaml .Values.controller.resources | nindent 12 }}
+              {{- end }}

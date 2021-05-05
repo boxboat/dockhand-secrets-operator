@@ -1,5 +1,5 @@
 
-operator:
+controller:
   replicas: 1
   image:
     pullPolicy: IfNotPresent
@@ -7,7 +7,7 @@ operator:
     tag: latest
   resources: {}
 
-controller:
+webhook:
   replicas: 1
   image:
     pullPolicy: IfNotPresent
