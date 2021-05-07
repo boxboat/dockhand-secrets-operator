@@ -17,7 +17,7 @@ rules:
       - deployments
       - statefulsets
       - dockhandsecrets
-      - dockhandprofiles
+      - dockhandsecretsprofiles
     verbs:
       - get
       - delete
