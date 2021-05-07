@@ -32,7 +32,7 @@ func main() {
 			"dockhand.boxboat.io": {
 				Types: []interface{}{
 					dockhand.DockhandSecret{},
-					dockhand.DockhandProfile{},
+					dockhand.DockhandSecretsProfile{},
 				},
 				GenerateTypes: true,
 			},

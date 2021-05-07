@@ -48,17 +48,17 @@ import (
 
 // Handler is the controller implementation for DockhandSecret Resources
 type Handler struct {
-	ctx                       context.Context
-	operatorNamespace         string
-	daemonSets                appscontrollers.DaemonSetClient
-	deployments               appscontrollers.DeploymentClient
-	dockhandSecretsController dockhandcontrollers.DockhandSecretController
-	dockhandProfileController dockhandcontrollers.DockhandProfileController
-	dockhandProfileCache      dockhandcontrollers.DockhandProfileCache
-	statefulSets              appscontrollers.StatefulSetClient
-	secrets                   corecontrollers.SecretClient
-	funcMap                   template.FuncMap
-	recorder                  record.EventRecorder
+	ctx                        context.Context
+	operatorNamespace          string
+	daemonSets                 appscontrollers.DaemonSetClient
+	deployments                appscontrollers.DeploymentClient
+	dhSecretsController        dockhandcontrollers.DockhandSecretController
+	dhSecretsProfileController dockhandcontrollers.DockhandSecretsProfileController
+	dhProfileCache             dockhandcontrollers.DockhandSecretsProfileCache
+	statefulSets               appscontrollers.StatefulSetClient
+	secrets                    corecontrollers.SecretClient
+	funcMap                    template.FuncMap
+	recorder                   record.EventRecorder
 }
 
 func Register(
@@ -70,21 +70,21 @@ func Register(
 	statefulsets appscontrollers.StatefulSetController,
 	secrets corecontrollers.SecretClient,
 	dockhandSecrets dockhandcontrollers.DockhandSecretController,
-	dockhandProfile dockhandcontrollers.DockhandProfileController,
+	dockhandProfile dockhandcontrollers.DockhandSecretsProfileController,
 	funcMap template.FuncMap) {
 
 	h := &Handler{
-		ctx: ctx,
-		operatorNamespace:         namespace,
-		daemonSets:                daemonsets,
-		deployments:               deployments,
-		dockhandSecretsController: dockhandSecrets,
-		dockhandProfileController: dockhandProfile,
-		dockhandProfileCache:      dockhandProfile.Cache(),
-		secrets:                   secrets,
-		statefulSets:              statefulsets,
-		funcMap:                   funcMap,
-		recorder:         buildEventRecorder(events),
+		ctx:                        ctx,
+		operatorNamespace:          namespace,
+		daemonSets:                 daemonsets,
+		deployments:                deployments,
+		dhSecretsController:        dockhandSecrets,
+		dhSecretsProfileController: dockhandProfile,
+		dhProfileCache:             dockhandProfile.Cache(),
+		secrets:                    secrets,
+		statefulSets:               statefulsets,
+		funcMap:                    funcMap,
+		recorder:                   buildEventRecorder(events),
 	}
 
 	// Register handlers
@@ -129,12 +129,12 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 		return nil, nil
 	}
 	common.Log.Debugf("DockhandSecret change: %v", secret)
-	profile, err := h.dockhandProfileCache.Get(h.operatorNamespace, secret.DockhandProfile)
+	profile, err := h.dhProfileCache.Get(h.operatorNamespace, secret.Profile)
 	if err != nil {
-		common.Log.Warnf("Could not load DockhandProfile[%s]", secret.DockhandProfile)
+		common.Log.Warnf("Could not load DockhandSecretsProfile[%s]", secret.Profile)
 		return nil, nil
 	}
-	h.loadDockhandProfile(profile)
+	h.loadDockhandSecretsProfile(profile)
 
 	k8sSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{})
 
@@ -327,7 +327,7 @@ func (h *Handler) onStatefulSetChange(_ string, statefulset *v1.StatefulSet) (*v
 	return h.processStatefulSet(statefulset)
 }
 
-func (h *Handler) loadDockhandProfile(profile *dockhand.DockhandProfile) error {
+func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsProfile) error {
 	if profile.AwsSecretsManager != nil {
 		var err error
 		if aws.CacheTTL, err = time.ParseDuration(profile.AwsSecretsManager.CacheTTL); err != nil{

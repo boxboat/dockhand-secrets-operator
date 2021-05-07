@@ -69,8 +69,8 @@ type Vault struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DockhandProfile is a specification for a DockhandProfile resource
-type DockhandProfile struct {
+// DockhandSecretsProfile is a specification for a DockhandProfile resource
+type DockhandSecretsProfile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -88,9 +88,9 @@ type DockhandSecret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Data            map[string]string `json:"data"`
-	SecretSpec      SecretSpec        `json:"secretSpec"`
-	DockhandProfile string            `json:"dockhandProfile"`
+	Data       map[string]string `json:"data"`
+	SecretSpec SecretSpec        `json:"secretSpec"`
+	Profile    string            `json:"profile"`
 }
 
 // SecretSpec defines the kubernetes secret data to use for the secret managed by a DockhandSecret

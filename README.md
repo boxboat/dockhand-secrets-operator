@@ -14,7 +14,7 @@ Please be aware that until `0.1.0` is released, some changes may occur to the st
 
 ## Usage
 1. Install Helm Chart
-2. Configure Operator with `DockhandProfile` to connect `dockhand-secrets-operator` to 1 or more Secrets Managers
+2. Configure Operator with `DockhandSecretsProfile` to connect `dockhand-secrets-operator` to 1 or more Secrets Managers
 3. Create `DockhandSecrets` to manage `Secrets` required by your applications.
 
 
@@ -22,14 +22,14 @@ Please be aware that until `0.1.0` is released, some changes may occur to the st
 `dockhand-secrets-operator` makes use of 2 CRDs to manage `Secrets`. One provides the data required for the operator to connect to the secrets manager(s) and the other manages `Secrets`
 
 #### DockhandProfile
-Example of how to create a `DockhandProfile`
+Example of how to create a `DockhandSecretsProfile`
 
 The `cacheTTL` field allows you to control how long a Secrets Manager response is cached by the operator. The default is 60 seconds which prevents the `dockhand-secrets-operator` from abusing the Secrets Backend.
 
 ```yaml
 ---
 apiVersion: dockhand.boxboat.io/v1alpha1
-kind: DockhandProfile
+kind: DockhandSecretsProfile
 metadata:
   name: test-dockhand-profile
   namespace: dockhand-secrets-operator
@@ -81,7 +81,7 @@ Note that GCP and Azure have 2 forms of supported secrets `text` or `json`. The 
 
 The `DockhandSecret` will generate a secret of type `secretSpec.type` in the same namespace specified by `secretSpec.name`. Changes to a `DockhandSecret` will trigger a refresh of the `Secret` managed by that `DockhandSecret`. You can optionally have labels or annotations injected on the `Secret` created by the `DockhandSecret`.
 
-The `dockhandProfile` field allows you to specify different `DockhandProfiles`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
+The `dockhandProfile` field allows you to specify different `DockhandSecretsProfiles`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
 
 ```yaml
 ---
@@ -89,7 +89,7 @@ apiVersion: dockhand.boxboat.io/v1alpha1
 kind: DockhandSecret
 metadata:
   name: dockhand-example-secret
-dockhandProfile: dockhand-profile
+profile: dockhand-profile
 secretSpec:
   name: example-secret
   type: Opaque
