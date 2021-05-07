@@ -119,7 +119,7 @@ var startOperatorCmd = &cobra.Command{
 			apps.Apps().V1().StatefulSet(),
 			core.Core().V1().Secret(),
 			dh.Dockhand().V1alpha1().DockhandSecret(),
-			dh.Dockhand().V1alpha1().DockhandProfile(),
+			dh.Dockhand().V1alpha1().DockhandSecretsProfile(),
 			funcMap)
 
 		// Start all the controllers

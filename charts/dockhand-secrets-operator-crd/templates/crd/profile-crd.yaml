@@ -1,16 +1,16 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: dockhandprofiles.dockhand.boxboat.io
+  name: dockhandsecretsprofiles.dockhand.boxboat.io
   labels:
-    app.kubernetes.io/name: dockhandprofiles.dockhand.boxboat.io
+    app.kubernetes.io/name: dockhandsecretsprofiles.dockhand.boxboat.io
 spec:
   group: dockhand.boxboat.io
   scope: Namespaced
   names:
-    plural: dockhandprofiles
-    singular: dockhandprofile
-    kind: DockhandProfile
+    plural: dockhandsecretsprofiles
+    singular: dockhandsecretsprofile
+    kind: DockhandSecretsProfile
     shortNames:
       - dhp
   versions:

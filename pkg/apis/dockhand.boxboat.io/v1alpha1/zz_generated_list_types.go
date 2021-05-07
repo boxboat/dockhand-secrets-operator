@@ -42,16 +42,16 @@ func NewDockhandSecret(namespace, name string, obj DockhandSecret) *DockhandSecr
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DockhandProfileList is a list of DockhandProfile resources
-type DockhandProfileList struct {
+// DockhandSecretsProfileList is a list of DockhandSecretsProfile resources
+type DockhandSecretsProfileList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	Items []DockhandProfile `json:"items"`
+	Items []DockhandSecretsProfile `json:"items"`
 }
 
-func NewDockhandProfile(namespace, name string, obj DockhandProfile) *DockhandProfile {
-	obj.APIVersion, obj.Kind = SchemeGroupVersion.WithKind("DockhandProfile").ToAPIVersionAndKind()
+func NewDockhandSecretsProfile(namespace, name string, obj DockhandSecretsProfile) *DockhandSecretsProfile {
+	obj.APIVersion, obj.Kind = SchemeGroupVersion.WithKind("DockhandSecretsProfile").ToAPIVersionAndKind()
 	obj.Name = name
 	obj.Namespace = namespace
 	return &obj

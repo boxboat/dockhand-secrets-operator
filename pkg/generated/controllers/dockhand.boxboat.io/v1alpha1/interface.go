@@ -29,8 +29,8 @@ func init() {
 }
 
 type Interface interface {
-	DockhandProfile() DockhandProfileController
 	DockhandSecret() DockhandSecretController
+	DockhandSecretsProfile() DockhandSecretsProfileController
 }
 
 func New(controllerFactory controller.SharedControllerFactory) Interface {
@@ -43,9 +43,9 @@ type version struct {
 	controllerFactory controller.SharedControllerFactory
 }
 
-func (c *version) DockhandProfile() DockhandProfileController {
-	return NewDockhandProfileController(schema.GroupVersionKind{Group: "dockhand.boxboat.io", Version: "v1alpha1", Kind: "DockhandProfile"}, "dockhandprofiles", true, c.controllerFactory)
-}
 func (c *version) DockhandSecret() DockhandSecretController {
 	return NewDockhandSecretController(schema.GroupVersionKind{Group: "dockhand.boxboat.io", Version: "v1alpha1", Kind: "DockhandSecret"}, "dockhandsecrets", true, c.controllerFactory)
+}
+func (c *version) DockhandSecretsProfile() DockhandSecretsProfileController {
+	return NewDockhandSecretsProfileController(schema.GroupVersionKind{Group: "dockhand.boxboat.io", Version: "v1alpha1", Kind: "DockhandSecretsProfile"}, "dockhandsecretsprofiles", true, c.controllerFactory)
 }
