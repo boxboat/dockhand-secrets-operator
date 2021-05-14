@@ -13,7 +13,7 @@ The operator installation deploys the CRDs, the controller and a mutating webhoo
 Please be aware that until `0.1.0` is released, some changes may occur to the structure of the CRDs.
 
 ## Usage
-1. Install Helm Chart
+1. Install Helm charts from [dockhand-charts](https://github.com/boxboat/dockhand-charts)
 2. Configure Operator with `DockhandSecretsProfile` to connect `dockhand-secrets-operator` to 1 or more Secrets Managers
 3. Create `DockhandSecrets` to manage `Secrets` required by your applications.
 
