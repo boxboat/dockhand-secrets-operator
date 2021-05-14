@@ -9,9 +9,6 @@ The operator supports auto rolling updates for `Deployments`, `StatefulSets` and
 
 The operator installation deploys the CRDs, the controller and a mutating webhook to provide auto updates for types mentioned above.
 
-# ⚠️ Development Note
-Please be aware that until `0.1.0` is released, some changes may occur to the structure of the CRDs.
-
 ## Usage
 1. Install Helm charts from [dockhand-charts](https://github.com/boxboat/dockhand-charts)
 2. Configure Operator with `DockhandSecretsProfile` to connect `dockhand-secrets-operator` to 1 or more Secrets Managers
