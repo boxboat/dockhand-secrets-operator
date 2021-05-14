@@ -27,7 +27,7 @@ jobs:
             if ! echo "$tag" | grep -qF '-'; then
               latest=",boxboat/dockhand-secrets-operator:latest"
             fi
-            tag="$(echo "$tag" | sed -e 's/[^a-zA-Z0-9\-\.]/-/g')"
+            tag="v$(echo "$tag" | sed -e 's/[^a-zA-Z0-9\-\.]/-/g')"
             echo "::set-output name=TAGS::boxboat/dockhand-secrets-operator:${tag}${latest}"
           else
             echo "unable to determine tag" >&2
