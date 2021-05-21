@@ -1,4 +1,6 @@
 .git
+/bin
+/release
 /dockhand-secrets-operator
 /local-test
 /charts

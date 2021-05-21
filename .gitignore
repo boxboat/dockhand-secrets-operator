@@ -1,6 +1,6 @@
-/dockhand-secrets-operator
 /release
 .idea
 /local-test
 /remote-test
+/bin
 *.json
