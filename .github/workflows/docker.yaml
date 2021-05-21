@@ -14,37 +14,60 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Compute Tags
-        id: compute_tags
+      - name: Compute Version
+        id: version
         run: |
-          branch="${GITHUB_REF#refs/heads/}"
-          tag="${GITHUB_REF#refs/tags/v}"
-          if [ "$branch" != "$GITHUB_REF" ]; then
-            branch="$(echo "$branch" | sed -e 's/[^a-zA-Z0-9\-\.]/-/g')"
-            echo "::set-output name=TAGS::boxboat/dockhand-secrets-operator:commit-${branch}"
-          elif [ "$tag" != "$GITHUB_REF" ]; then
-            latest=""
-            if ! echo "$tag" | grep -qF '-'; then
-              latest=",boxboat/dockhand-secrets-operator:latest"
-            fi
-            tag="v$(echo "$tag" | sed -e 's/[^a-zA-Z0-9\-\.]/-/g')"
-            echo "::set-output name=TAGS::boxboat/dockhand-secrets-operator:${tag}${latest}"
-          else
-            echo "unable to determine tag" >&2
-            exit 1
+          echo ${GITHUB_REF}
+          tag=${GITHUB_REF#refs/tags/}
+          publish="no"
+          if [ "${tag}" != "${GITHUB_REF}" ]; then
+            tag=$(echo "${tag}" | sed -e 's/[^a-zA-Z0-9\-\.]/-/g')
+            version=${tag}
+            publish="yes"
           fi
+
+          branch=${GITHUB_REF#refs/heads/}
+          if [[ -z "${version}" && "${branch}" != "${GITHUB_REF}" ]]; then
+            branch=$(echo "${branch}" | sed -e 's/[^a-zA-Z0-9\-\.]/-/g')
+            version=${branch}
+            if [[ ${branch} = "master" ]]; then
+              publish="yes"
+            fi
+          fi
+
+          pr=${GITHUB_REF#refs/pull/}
+          if [[ -z "${version}" && "${pr}" != "${GITHUB_REF}" ]]; then
+            pr=$(echo "${pr}" | sed -e 's/[^a-zA-Z0-9\-\.]/-/g')
+            version=${pr}
+          fi
+
+          if [ -z "${version}" ]; then
+            echo "Version could not be determined" >&2
+            exit 1
+          else
+            echo ::set-output name=CI_VERSION::${version}
+            echo ::set-output name=PUBLISH::${publish}
+          fi
+
       - name: Setup Docker Buildx
+        if: ${{ steps.version.outputs.PUBLISH == 'yes' }}
         uses: docker/setup-buildx-action@v1
+        id: buildx
+        with:
+          version: v0.5.1
+          driver: docker-container
+          install: true
+          buildkitd-flags: --debug
 
       - name: Login to DockerHub
+        if: ${{ steps.version.outputs.PUBLISH == 'yes' }}
         uses: docker/login-action@v1
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build and push
-        id: docker_build
-        uses: docker/build-push-action@v2
-        with:
-          push: true
-          tags: "${{ steps.compute_tags.outputs.TAGS }}"
+      - name: Docker Release
+        if: ${{ steps.version.outputs.PUBLISH == 'yes' }}
+        run: make docker
+        env:
+          CI_VERSION: ${{ steps.version.outputs.CI_VERSION }}

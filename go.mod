@@ -1,6 +1,6 @@
 module github.com/boxboat/dockhand-secrets-operator
 
-go 1.15
+go 1.16
 
 require (
 	github.com/boxboat/dockcmd v1.6.0
