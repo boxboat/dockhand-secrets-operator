@@ -48,70 +48,19 @@ var (
 	serverArgs ServerArgs
 )
 
-func certManager() {
+func runCertManager(ctx context.Context) {
 	lock, err := k8s.GetLeaseLock(serverArgs.serviceId, serverArgs.serviceName, serverArgs.serviceNamespace)
 	common.ExitIfError(err)
 
-	leaderCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	leaderelection.RunOrDie(leaderCtx, leaderelection.LeaderElectionConfig{
+	leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
 		Lock:          lock,
 		LeaseDuration: 15 * time.Second,
 		RenewDeadline: 10 * time.Second,
 		RetryPeriod:   2 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
-			OnStartedLeading: func(ctx context.Context) {
-				var cert *tls.Certificate
-				checkTime := time.Now()
-				for {
-					// only retrieve the certificate at startup and then once a day after that
-					if cert == nil || time.Now().Add(time.Hour*-24).After(checkTime) {
-						common.Log.Infof("checking certificate %s/%s", serverArgs.serviceNamespace, serverArgs.serviceName)
-						checkTime = time.Now()
-						cert, err = k8s.GetServiceCertificate(leaderCtx, serverArgs.serviceName, serverArgs.serviceNamespace)
-						if err != nil && !errors.IsNotFound(err) {
-							common.ExitIfError(err)
-						}
-					}
-					if cert == nil || common.ValidDaysRemaining(cert.Certificate[0]) < 30 {
-						common.Log.Infof("Renewing self signed certificate")
-						caPem, caKey, err := common.GenerateSelfSignedCA(serverArgs.serviceName + "-ca")
-						common.ExitIfError(err)
-						err = k8s.UpdateCABundleForWebhook(leaderCtx, serverArgs.serviceName+".dockhand.boxboat.io", caPem)
-						common.ExitIfError(err)
-						dnsNames := []string{
-							serverArgs.serviceName + "." + serverArgs.serviceNamespace,
-							serverArgs.serviceName + "." + serverArgs.serviceNamespace + ".svc"}
-
-						cert, key, err := common.GenerateSignedCert(serverArgs.serviceName, dnsNames, caPem, caKey)
-						common.ExitIfError(err)
-						err = k8s.UpdateTlsCertificateSecret(leaderCtx, serverArgs.serviceName, serverArgs.serviceNamespace, cert, key, caPem)
-						common.ExitIfError(err)
-
-						webhook, err := k8s.GetDeployment(leaderCtx, serverArgs.serviceName, serverArgs.serviceNamespace)
-						common.ExitIfError(err)
-						checksum, err := k8s.GetSecretsChecksum(leaderCtx, []string{serverArgs.serviceName}, serverArgs.serviceNamespace)
-						common.ExitIfError(err)
-						if webhook.Spec.Template.Annotations == nil {
-							webhook.Spec.Template.Annotations = make(map[string]string)
-						}
-						webhook.Spec.Template.Annotations[dockhand.SecretChecksumAnnotationKey] = checksum
-						webhook, err = k8s.UpdateDeployment(leaderCtx, webhook, serverArgs.serviceNamespace)
-						if err != nil {
-							common.Log.Warnf("Could not update deployment %v", err)
-						}
-					}
-					time.Sleep(time.Second * 5)
-				}
-			},
-			OnStoppedLeading: func() {
-				common.Log.Infof("No longer leading")
-			},
-			OnNewLeader: func(identity string) {
-				if identity == serverArgs.serviceId {
-					return
-				}
-			},
+			OnStartedLeading: onStartedLeading,
+			OnStoppedLeading: onStoppedLeading,
+			OnNewLeader: onNewLeader(serverArgs.serviceId),
 		},
 		WatchDog:        nil,
 		ReleaseOnCancel: true,
@@ -120,11 +69,77 @@ func certManager() {
 
 }
 
+func onStartedLeading(ctx context.Context) {
+	common.Log.Infof("elected leader")
+	ensureTLSCertificateSecretInCluster(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(time.Minute):
+			ensureTLSCertificateSecretInCluster(ctx)
+		}
+	}
+
+}
+
+func onStoppedLeading() {
+	common.Log.Infof("no longer leading")
+}
+
+func onNewLeader(id string) func(string) {
+	return func(newLeaderID string) {
+		if newLeaderID != id {
+			common.Log.Infof("%s elected new leader", newLeaderID)
+		}
+	}
+}
+
+func ensureTLSCertificateSecretInCluster(ctx context.Context) {
+
+	common.Log.Infof("checking certificate %s/%s", serverArgs.serviceNamespace, serverArgs.serviceName)
+	cert, err := k8s.GetServiceCertificate(ctx, serverArgs.serviceName, serverArgs.serviceNamespace)
+	if err != nil && !errors.IsNotFound(err) {
+		common.ExitIfError(err)
+	}
+	if cert == nil || common.ValidDaysRemaining(cert.Certificate[0]) < 30 {
+		common.Log.Infof("Renewing self signed certificate")
+		caPem, caKey, err := common.GenerateSelfSignedCA(serverArgs.serviceName + "-ca")
+		common.ExitIfError(err)
+		err = k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName+".dockhand.boxboat.io", caPem)
+		common.ExitIfError(err)
+		dnsNames := []string{
+			serverArgs.serviceName + "." + serverArgs.serviceNamespace,
+			serverArgs.serviceName + "." + serverArgs.serviceNamespace + ".svc"}
+
+		cert, key, err := common.GenerateSignedCert(serverArgs.serviceName, dnsNames, caPem, caKey)
+		common.ExitIfError(err)
+		err = k8s.UpdateTlsCertificateSecret(ctx, serverArgs.serviceName, serverArgs.serviceNamespace, cert, key, caPem)
+		common.ExitIfError(err)
+
+		deploy, err := k8s.GetDeployment(ctx, serverArgs.serviceName, serverArgs.serviceNamespace)
+		common.ExitIfError(err)
+		checksum, err := k8s.GetSecretsChecksum(ctx, []string{serverArgs.serviceName}, serverArgs.serviceNamespace)
+		common.ExitIfError(err)
+		if deploy.Spec.Template.Annotations == nil {
+			deploy.Spec.Template.Annotations = make(map[string]string)
+		}
+		deploy.Spec.Template.Annotations[dockhand.SecretChecksumAnnotationKey] = checksum
+		_, err = k8s.UpdateDeployment(ctx, deploy, serverArgs.serviceNamespace)
+		if err != nil {
+			common.Log.Warnf("Could not update deployment %v", err)
+		}
+	}
+
+}
+
 func runServer(ctx context.Context) {
 	var err error
 	tlsPair := tls.Certificate{}
 	if serverArgs.selfSignCerts {
-		go certManager()
+		leaderCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		go runCertManager(leaderCtx)
 	} else {
 		tlsPair, err = tls.LoadX509KeyPair(serverArgs.serverCert, serverArgs.serverKey)
 		common.ExitIfError(err)
@@ -220,7 +235,7 @@ func init() {
 		&serverArgs.serverKey,
 		"key",
 		"/tls/server.key",
-		"x509 server certificate")
+		"x509 server key")
 
 	startServerCmd.Flags().StringVar(
 		&serverArgs.serviceId,
