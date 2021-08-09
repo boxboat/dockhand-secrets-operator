@@ -116,7 +116,7 @@ data:
 If you are using `DockhandSecrets` in a Helm chart, and you simply want to retrieve the latest version of the secret everytime helm is executed, place an annotation on the `DockhandSecret` that generates a timestamp - this will trigger the operator to handle a `DockhandSecret` change.
 ```yaml
 annotations:
-  updateTimestamp: {{ now | date "20060102150405" }}
+  updateTimestamp: {{ now | date "20060102150405" | quote }}
 ```
 
 ### Auto Updates
