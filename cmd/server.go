@@ -98,7 +98,7 @@ func onNewLeader(id string) func(string) {
 func ensureTLSCertificateSecretInCluster(ctx context.Context) {
 
 	common.Log.Infof("checking certificate %s/%s", serverArgs.serviceNamespace, serverArgs.serviceName)
-	cert, err := k8s.GetServiceCertificate(ctx, serverArgs.serviceName, serverArgs.serviceNamespace)
+	cert, caPem, err := k8s.GetServiceCertificate(ctx, serverArgs.serviceName, serverArgs.serviceNamespace)
 	if err != nil && !errors.IsNotFound(err) {
 		common.ExitIfError(err)
 	}
@@ -129,6 +129,9 @@ func ensureTLSCertificateSecretInCluster(ctx context.Context) {
 		if err != nil {
 			common.Log.Warnf("Could not update deployment %v", err)
 		}
+	} else {
+		err = k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName + ".dockhand.boxboat.io", caPem)
+		common.LogIfError(err)
 	}
 
 }
@@ -148,7 +151,7 @@ func runServer(ctx context.Context) {
 	attempt := 0
 	for {
 		if attempt < 10 {
-			cert, err := k8s.GetServiceCertificate(ctx, serverArgs.serviceName, serverArgs.serviceNamespace)
+			cert, _, err := k8s.GetServiceCertificate(ctx, serverArgs.serviceName, serverArgs.serviceNamespace)
 			if errors.IsNotFound(err) {
 				time.Sleep(5 * time.Second)
 			} else if err != nil {
