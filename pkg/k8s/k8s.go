@@ -17,6 +17,7 @@ limitations under the License.
 package k8s
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"crypto/tls"
@@ -179,11 +180,18 @@ func UpdateCABundleForWebhook(ctx context.Context, name string, caBundleBytes []
 		return err
 	}
 
+
+
 	if len(webhook.Webhooks) > 0 && webhook.Webhooks[0].Name == name {
-		webhook.Webhooks[0].ClientConfig.CABundle = caBundleBytes
-		_, err := webhookClient.Update(context.Background(), webhook, metav1.UpdateOptions{})
-		if err != nil {
-			return err
+		// check to see if we are actually updating the CA Bytes
+		if bytes.Compare(webhook.Webhooks[0].ClientConfig.CABundle, caBundleBytes) != 0 {
+			webhook.Webhooks[0].ClientConfig.CABundle = caBundleBytes
+			_, err := webhookClient.Update(context.Background(), webhook, metav1.UpdateOptions{})
+			if err != nil {
+				return err
+			}
+		} else {
+			common.Log.Debugf("no change detected with CA pem - not updating webhook configuration")
 		}
 	}
 
@@ -225,27 +233,29 @@ func UpdateTlsCertificateSecret(ctx context.Context, name string, namespace stri
 }
 
 // GetServiceCertificate for service and namespace.
-func GetServiceCertificate(ctx context.Context, name string, namespace string) (*tls.Certificate, error) {
+func GetServiceCertificate(ctx context.Context, name string, namespace string) (*tls.Certificate, []byte, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	tlsSecret, err := clientset.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	keyPair, err := tls.X509KeyPair(tlsSecret.Data["tls.crt"], tlsSecret.Data["tls.key"])
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &keyPair, nil
+	caCert := tlsSecret.Data["ca.crt"]
+
+	return &keyPair, caCert, nil
 }
 
 func GenerateMetadataLabelsPatch(target map[string]string, added map[string]string) (patch []PatchOperation) {
