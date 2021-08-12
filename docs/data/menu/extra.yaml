@@ -1,0 +1,6 @@
+---
+header:
+  - name: GitHub
+    ref: https://github.com/boxboat/dockhand-secrets-operator
+    icon: gdoc_github
+    external: true
