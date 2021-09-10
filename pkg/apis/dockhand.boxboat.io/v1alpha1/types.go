@@ -21,12 +21,17 @@ import (
 )
 
 const (
-	AutoUpdateLabelKey                = "dockhand.boxboat.io/autoUpdate"
-	DockhandSecretLabelKey            = "dockhand.boxboat.io/ownedByDockhandSecret"
-	DockhandSecretNamesLabelPrefixKey = "dockhandsecret.boxboat.io/"
-	SecretNamesAnnotationKey          = "dockhand.boxboat.io/secretNames"
-	SecretChecksumAnnotationKey       = "dockhand.boxboat.io/secretChecksum"
+	AutoUpdateLabelKey                            = "dockhand.boxboat.io/autoUpdate"
+	DockhandSecretLabelKey                        = "dockhand.boxboat.io/ownedByDockhandSecret"
+	DockhandSecretNamesLabelPrefixKey             = "dockhandsecret.boxboat.io/"
+	SecretNamesAnnotationKey                      = "dockhand.boxboat.io/secretNames"
+	SecretChecksumAnnotationKey                   = "dockhand.boxboat.io/secretChecksum"
+	Ready                             SecretState = "Ready"
+	Pending                           SecretState = "Pending"
+	ErrApplied                        SecretState = "ErrApplied"
 )
+
+type SecretState string
 
 // SecretRef specifies a reference to a Secret
 type SecretRef struct {
@@ -88,9 +93,10 @@ type DockhandSecret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Data       map[string]string `json:"data"`
-	SecretSpec SecretSpec        `json:"secretSpec"`
-	Profile    string            `json:"profile"`
+	Data       map[string]string    `json:"data"`
+	SecretSpec SecretSpec           `json:"secretSpec"`
+	Profile    string               `json:"profile"`
+	Status     DockhandSecretStatus `json:"status,omitempty"`
 }
 
 // SecretSpec defines the kubernetes secret data to use for the secret managed by a DockhandSecret
@@ -99,4 +105,8 @@ type SecretSpec struct {
 	Type        string            `json:"type"`
 	Labels      map[string]string `json:"labels"`
 	Annotations map[string]string `json:"annotations"`
+}
+
+type DockhandSecretStatus struct {
+	State SecretState `json:"state"`
 }

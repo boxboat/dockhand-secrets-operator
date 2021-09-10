@@ -125,6 +125,11 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.DockhandSecr
 }
 
 func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecret) (*dockhand.DockhandSecret, error) {
+	if secret.Status.State == "" {
+		statusErr := h.updateDockhandSecretStatus(secret, dockhand.Pending)
+		common.LogIfError(statusErr)
+	}
+
 	if secret == nil {
 		return nil, nil
 	}
@@ -179,6 +184,8 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 		secretData, err := dockcmdCommon.ParseSecretsTemplate([]byte(v), h.funcMap)
 		if err != nil {
 			h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrParsingSecret", "Could not parse template %v", err)
+			statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+			common.LogIfError(statusErr)
 			return nil, err
 		}
 		common.Log.Debugf("%s: %s", k, secretData)
@@ -189,14 +196,24 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 		if _, err := h.secrets.Create(k8sSecret); err == nil {
 			h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s created", secret.Namespace, secret.SecretSpec.Name)
 		} else {
+			h.recorder.Eventf(secret, corev1.EventTypeWarning, "Error", "Secret %s/%s not created", secret.Namespace, secret.SecretSpec.Name)
+			statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+			common.LogIfError(statusErr)
 			return nil, err
 		}
 	} else {
 		if _, err := h.secrets.Update(k8sSecret); err == nil{
 			h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s updated", secret.Namespace, secret.SecretSpec.Name)
 		} else {
+			h.recorder.Eventf(secret, corev1.EventTypeWarning, "Error", "Secret %s/%s not updated", secret.Namespace, secret.SecretSpec.Name)
+			statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+			common.LogIfError(statusErr)
 			return nil, err
 		}
+	}
+	// if we have made it here the secret is provisioned and ready
+	if err := h.updateDockhandSecretStatus(secret, dockhand.Ready); err == nil {
+		return nil, err
 	}
 
 	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + secret.SecretSpec.Name
@@ -450,4 +467,13 @@ func (h *Handler) getUpdatedLabelsAndAnnotations(
 	updatedAnnotations[dockhand.SecretChecksumAnnotationKey] = checksum
 
 	return updatedLabels, updatedAnnotations
+}
+
+func (h* Handler) updateDockhandSecretStatus(secret *dockhand.DockhandSecret, state dockhand.SecretState) error {
+	common.Log.Infof("Updating %s status", secret.Name)
+	secretCopy := secret.DeepCopy()
+	secretCopy.Status.State = state
+	_, err := h.dhSecretsController.UpdateStatus(secretCopy)
+
+	return err
 }
