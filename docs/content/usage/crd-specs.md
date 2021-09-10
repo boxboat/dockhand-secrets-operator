@@ -194,6 +194,8 @@ FIELDS:
 
    secretSpec	<Object>
      Specification to use for creating the Kubernetes Secret
+     
+   status <Object>
 ```
 
 ### DockhandSecret.secretSpec
