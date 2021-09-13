@@ -125,21 +125,32 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.DockhandSecr
 }
 
 func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecret) (*dockhand.DockhandSecret, error) {
+	if secret == nil {
+		return nil, nil
+	}
+
 	if secret.Status.State == "" {
 		statusErr := h.updateDockhandSecretStatus(secret, dockhand.Pending)
 		common.LogIfError(statusErr)
 	}
 
-	if secret == nil {
-		return nil, nil
-	}
 	common.Log.Debugf("DockhandSecret change: %v", secret)
 	profile, err := h.dhProfileCache.Get(h.operatorNamespace, secret.Profile)
+
 	if err != nil {
-		common.Log.Warnf("Could not load DockhandSecretsProfile[%s]", secret.Profile)
-		return nil, nil
+		common.Log.Warnf("Could not get DockhandSecretsProfile[%s]", secret.Profile)
+		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not get DockhandSecretsProfile[%s]", secret.Profile)
+		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+		common.LogIfError(statusErr)
+		return nil, err
 	}
-	h.loadDockhandSecretsProfile(profile)
+
+	if err := h.loadDockhandSecretsProfile(profile); err != nil {
+		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not load DockhandSecretsProfile: %v", err)
+		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+		common.LogIfError(statusErr)
+		return nil, err
+	}
 
 	k8sSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{})
 
@@ -212,8 +223,9 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 		}
 	}
 	// if we have made it here the secret is provisioned and ready
-	if err := h.updateDockhandSecretStatus(secret, dockhand.Ready); err == nil {
-		return nil, err
+	if err := h.updateDockhandSecretStatus(secret, dockhand.Ready); err != nil {
+		// log status update error but continue
+		common.LogIfError(err)
 	}
 
 	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + secret.SecretSpec.Name
@@ -223,7 +235,6 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 	})
 	if err != nil {
 		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-		return nil, nil
 	}
 	for _, daemonset := range daemonsets.Items {
 		if _, err := h.processDaemonSet(&daemonset); err != nil {
@@ -236,7 +247,6 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 	})
 	if err != nil {
 		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-		return nil, nil
 	}
 	for _, deployment := range deployments.Items {
 		if _, err := h.processDeployment(&deployment); err != nil {
@@ -249,7 +259,6 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 	})
 	if err != nil {
 		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-		return nil, nil
 	}
 	for _, statefulset := range statefulsets.Items {
 		if _, err := h.processStatefulSet(&statefulset); err != nil {
