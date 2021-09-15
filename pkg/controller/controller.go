@@ -119,6 +119,7 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.DockhandSecr
 			"could not delete secret=%s from namespace=%s",
 			secret.SecretSpec.Name,
 			secret.Namespace)
+		return nil, err
 	}
 
 	return nil, nil
@@ -222,6 +223,7 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 			return nil, err
 		}
 	}
+
 	// if we have made it here the secret is provisioned and ready
 	if err := h.updateDockhandSecretStatus(secret, dockhand.Ready); err != nil {
 		// log status update error but continue
@@ -230,41 +232,36 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 
 	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + secret.SecretSpec.Name
 
-	daemonsets, err := h.daemonSets.List(secret.Namespace, metav1.ListOptions{
-		LabelSelector: labelSelector,
-	})
-	if err != nil {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-	for _, daemonset := range daemonsets.Items {
-		if _, err := h.processDaemonSet(&daemonset); err != nil {
-			common.Log.Warnf("error updating %s: %v", daemonset.Name, err)
+	if daemonsets, err := h.daemonSets.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
+		for _, daemonset := range daemonsets.Items {
+			if _, err := h.processDaemonSet(&daemonset); err != nil {
+				common.Log.Warnf("error updating %s: %v", daemonset.Name, err)
+			}
 		}
+	} else {
+		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
 	}
 
-	deployments, err := h.deployments.List(secret.Namespace, metav1.ListOptions{
-		LabelSelector: labelSelector,
-	})
-	if err != nil {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-	for _, deployment := range deployments.Items {
-		if _, err := h.processDeployment(&deployment); err != nil {
-			common.Log.Warnf("error updating %s: %v", deployment.Name, err)
+	if deployments, err := h.deployments.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
+		for _, deployment := range deployments.Items {
+			if _, err := h.processDeployment(&deployment); err != nil {
+				common.Log.Warnf("error updating %s: %v", deployment.Name, err)
+			}
 		}
+	} else  {
+		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
 	}
 
-	statefulsets, err := h.statefulSets.List(secret.Namespace, metav1.ListOptions{
-		LabelSelector: labelSelector,
-	})
-	if err != nil {
+	if statefulsets, err := h.statefulSets.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
+		for _, statefulset := range statefulsets.Items {
+			if _, err := h.processStatefulSet(&statefulset); err != nil {
+				common.Log.Warnf("error updating %s: %v", statefulset.Name, err)
+			}
+		}
+	} else {
 		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
 	}
-	for _, statefulset := range statefulsets.Items {
-		if _, err := h.processStatefulSet(&statefulset); err != nil {
-			common.Log.Warnf("error updating %s: %v", statefulset.Name, err)
-		}
-	}
+
 	return nil, nil
 }
 
@@ -284,6 +281,7 @@ func (h *Handler) processDaemonSet(daemonset *v1.DaemonSet) (*v1.DaemonSet, erro
 
 			if _, err := h.daemonSets.Patch(daemonset.GetNamespace(), daemonset.GetName(), types.JSONPatchType, patchBytes); err != nil {
 				common.Log.Warnf("unable to update %s error:[%v]", daemonset.GetName(), err)
+				return nil, err
 			}
 		}
 	}
@@ -305,6 +303,7 @@ func (h *Handler) processDeployment(deployment *v1.Deployment) (*v1.Deployment, 
 
 			if _, err := h.deployments.Patch(deployment.GetNamespace(), deployment.GetName(), types.JSONPatchType, patchBytes); err != nil {
 				common.Log.Warnf("unable to update %s error:[%v]", deployment.GetName(), err)
+				return nil, err
 			}
 		}
 	}
@@ -326,6 +325,7 @@ func (h *Handler) processStatefulSet(statefulset *v1.StatefulSet) (*v1.StatefulS
 
 			if _, err := h.statefulSets.Patch(statefulset.GetNamespace(), statefulset.GetName(), types.JSONPatchType, patchBytes); err != nil {
 				common.Log.Warnf("unable to update %s error:[%v]", statefulset.GetName(), err)
+				return nil, err
 			}
 		}
 	}
@@ -365,7 +365,10 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsPr
 			aws.AccessKeyID = *profile.AwsSecretsManager.AccessKeyId
 		}
 		if profile.AwsSecretsManager.SecretAccessKeyRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.AwsSecretsManager.SecretAccessKeyRef.Name, metav1.GetOptions{})
+			secretData, err := h.secrets.Get(h.operatorNamespace, profile.AwsSecretsManager.SecretAccessKeyRef.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
 			if secretData != nil {
 				aws.SecretAccessKey = string(secretData.Data[profile.AwsSecretsManager.SecretAccessKeyRef.Key])
 			}
@@ -388,7 +391,10 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsPr
 		}
 
 		if profile.AzureKeyVault.ClientSecretRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.AzureKeyVault.ClientSecretRef.Name, metav1.GetOptions{})
+			secretData, err := h.secrets.Get(h.operatorNamespace, profile.AzureKeyVault.ClientSecretRef.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
 			if secretData != nil {
 				azure.ClientSecret = string(secretData.Data[profile.AzureKeyVault.ClientSecretRef.Key])
 			}
@@ -405,7 +411,10 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsPr
 		}
 		gcp.Project = profile.GcpSecretsManager.Project
 		if profile.GcpSecretsManager.CredentialsFileSecretRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.GcpSecretsManager.CredentialsFileSecretRef.Name, metav1.GetOptions{})
+			secretData, err := h.secrets.Get(h.operatorNamespace, profile.GcpSecretsManager.CredentialsFileSecretRef.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
 
 			if secretData != nil {
 				gcp.CredentialsJson = secretData.Data[profile.GcpSecretsManager.CredentialsFileSecretRef.Key]
@@ -423,7 +432,10 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsPr
 			vault.RoleID = *profile.Vault.RoleId
 		}
 		if profile.Vault.SecretIdRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.Vault.SecretIdRef.Name, metav1.GetOptions{})
+			secretData, err := h.secrets.Get(h.operatorNamespace, profile.Vault.SecretIdRef.Name, metav1.GetOptions{})
+			if err != nil {
+				return err
+			}
 			if secretData != nil {
 				vault.SecretID = string(secretData.Data["VAULT_SECRET_ID"])
 			}
