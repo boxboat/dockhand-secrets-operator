@@ -405,6 +405,11 @@ func getSecretsSetFromPodSpec(podSpec corev1.PodSpec) []string {
 				secretSet[env.ValueFrom.SecretKeyRef.Name] = member
 			}
 		}
+		for _, envSource := range container.EnvFrom {
+			if envSource.SecretRef != nil {
+				secretSet[envSource.SecretRef.Name] = member
+			}
+		}
 	}
 
 	for _, volume := range podSpec.Volumes {
