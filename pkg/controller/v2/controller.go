@@ -232,37 +232,9 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		common.LogIfError(err)
 	}
 
-	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + secret.SecretSpec.Name
-
-	if daemonsets, err := h.daemonSets.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, daemonset := range daemonsets.Items {
-			if _, err := h.ProcessDaemonSet(&daemonset); err != nil {
-				common.Log.Warnf("error updating %s: %v", daemonset.Name, err)
-			}
-		}
-	} else {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-
-	if deployments, err := h.deployments.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, deployment := range deployments.Items {
-			if _, err := h.ProcessDeployment(&deployment); err != nil {
-				common.Log.Warnf("error updating %s: %v", deployment.Name, err)
-			}
-		}
-	} else  {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-
-	if statefulsets, err := h.statefulSets.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, statefulset := range statefulsets.Items {
-			if _, err := h.ProcessStatefulSet(&statefulset); err != nil {
-				common.Log.Warnf("error updating %s: %v", statefulset.Name, err)
-			}
-		}
-	} else {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
+	h.UpdateDeployments(secret.SecretSpec.Name, secret.Namespace)
+	h.UpdateDaemonSets(secret.SecretSpec.Name, secret.Namespace)
+	h.UpdateStatefulSets(secret.SecretSpec.Name, secret.Namespace)
 
 	return nil, nil
 }
