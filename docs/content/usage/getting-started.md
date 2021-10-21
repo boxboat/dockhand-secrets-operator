@@ -29,8 +29,8 @@ helm repo update
 helm install --namespace dockhand-secrets-operator dockhand/dockhand-secrets-operator
 ```
 
-## Add DockhandSecretsProfile
-Once the operator is installed, you will need to give it access to the Secrets Manager(s) that you want to use on the cluster. This is accomplished by creating a `DockhandSecretsProfile`. See [core-concepts](/usage/core-concepts) 
+## Add Dockhand Profile
+Once the operator is installed, you will need to give it access to the Secrets Manager(s) that you want to use on the cluster. This is accomplished by creating a `Profile`. See [core-concepts](/usage/core-concepts) 
 
-## Add DockhandSecrets
-Start adding `DockhandSecrets` to your deployment manifests! See [core-concepts](/usage/core-concepts) 
+## Add Dockhand Secrets
+Start adding Dockhand `Secrets` to your deployment manifests! See [core-concepts](/usage/core-concepts) 

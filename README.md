@@ -18,15 +18,24 @@ The operator installation deploys the CRDs, the controller and a mutating webhoo
 ### CustomResourceDefinitions
 `dockhand-secrets-operator` makes use of 2 CRDs to manage `Secrets`. One provides the data required for the operator to connect to the secrets manager(s) and the other manages `Secrets`
 
-#### DockhandProfile
-Example of how to create a `DockhandSecretsProfile`
+### :warning: Deprecation Notice :warning:
+*`DockhandSecretsProfile` has been deprecated in favor of `Profile`*
+
+*`DockhandSecret` has been deprecated in favor of `Secret`*
+
+`DockhandSecretsProfile` and `DockhandSecret` will continue to be supported for at least one major release. Migration to new CRDs only changes the `apiVersion` and `kind`, all other fields remain the same. The motivation for this change is ensure that the `helm` `Kind` sorter creates a `secret.dhs.dockhand.dev` before attempting to create `Deployments`, `StatefulSets` or `DaemonSets` See [kind_sorter](https://github.com/helm/helm/blob/release-3.0/pkg/releaseutil/kind_sorter.go) and open [issue](https://github.com/helm/helm/issues/8439) to allow custom sorting. 
+
+#### Dockhand Profile
+
+
+Example of how to create a `Profile`
 
 The `cacheTTL` field allows you to control how long a Secrets Manager response is cached by the operator. The default is 60 seconds which prevents the `dockhand-secrets-operator` from abusing the Secrets Backend.
 
 ```yaml
 ---
-apiVersion: dockhand.boxboat.io/v1alpha1
-kind: DockhandSecretsProfile
+apiVersion: dhs.dockhand.dev/v1alpha1
+kind: Profile
 metadata:
   name: test-dockhand-profile
   namespace: dockhand-secrets-operator
@@ -71,19 +80,19 @@ data:
   gcp-credentials.json: <Base64 encoded GCP JSON file>
 ```
 
-#### DockhandSecret
-`DockhandSecret` is essentially a go template with alternate delimiters `<< >>` so that you can use it in a Helm chart. The operator is built off [dockcmd](https://github.com/boxboat/dockcmd). Sprig functions are supported and specific versions of secrets are supported through the use of `?version=` on the secret name. For simplicity `?version=latest` will work with all of the backends but specific versions require the value expected by the backend.
+#### Dockhand Secret
+The Dockhand `Secret` is essentially a go template with alternate delimiters `<< >>` so that you can use it in a Helm chart. The operator is built off [dockcmd](https://github.com/boxboat/dockcmd). Sprig functions are supported and specific versions of secrets are supported through the use of `?version=` on the secret name. For simplicity `?version=latest` will work with all of the backends but specific versions require the value expected by the backend.
 
 Note that GCP and Azure have 2 forms of supported secrets `text` or `json`. The text version will return the entire secret stored in the key/value where as the json version will interpret the stored value as `json` and allow you retrieve a single `key` in the secret.
 
-The `DockhandSecret` will generate a secret of type `secretSpec.type` in the same namespace specified by `secretSpec.name`. Changes to a `DockhandSecret` will trigger a refresh of the `Secret` managed by that `DockhandSecret`. You can optionally have labels or annotations injected on the `Secret` created by the `DockhandSecret`.
+The Dockhand `Secret` will generate a secret of type `secretSpec.type` in the same namespace specified by `secretSpec.name`. Changes to a Dockhand `Secret` will trigger a refresh of the `Secret` managed by that Dockhand `Secret`. You can optionally have labels or annotations injected on the `Secret` created by the Dockhand `Secret`.
 
-The `dockhandProfile` field allows you to specify different `DockhandSecretsProfiles`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
+The `profile` field allows you to specify the Dockhand `SecretProfile`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
 
 ```yaml
 ---
-apiVersion: dockhand.boxboat.io/v1alpha1
-kind: DockhandSecret
+apiVersion: dhs.dockhand.dev/v1alpha1
+kind: Secret
 metadata:
   name: dockhand-example-secret
 profile: dockhand-profile
@@ -113,17 +122,17 @@ data:
   vault-charlie: << (vault "secret/dockcmd-test?version=1" "charlie" ) | squote >>
 ```
 
-If you are using `DockhandSecrets` in a Helm chart, and you simply want to retrieve the latest version of the secret everytime helm is executed, place an annotation on the `DockhandSecret` that generates a timestamp - this will trigger the operator to handle a `DockhandSecret` change.
+If you are using Dockhand `Secrets` in a Helm chart, and you simply want to retrieve the latest version of the secret everytime helm is executed, place an annotation on the Dockhand `Secret` that generates a timestamp - this will trigger the operator to handle a Dockhand `Secret` change.
 ```yaml
 annotations:
   updateTimestamp: {{ now | date "20060102150405" | quote }}
 ```
 
 ### Auto Updates
-For `DaemonSets`, `Deployments` and `StatefulSets` you can insert the following label, which make the `dockhand-secrets-operator` auto roll those types when a `DockhandSecret` updates the `Secret` it owns.
+For `DaemonSets`, `Deployments` and `StatefulSets` you can insert the following label, which make the `dockhand-secrets-operator` auto roll those types when a Dockhand `Secret` updates the `Secret` it owns.
 
 ```yaml
 metadata:
   labels:
-    dockhand.boxboat.io/autoUpdate: "true"
+    dhs.dockhand.dev/autoUpdate: "true"
 ```

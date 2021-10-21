@@ -21,11 +21,11 @@ import (
 )
 
 const (
-	AutoUpdateLabelKey                            = "dockhand.boxboat.io/autoUpdate"
-	DockhandSecretLabelKey                        = "dockhand.boxboat.io/ownedByDockhandSecret"
-	DockhandSecretNamesLabelPrefixKey             = "dockhandsecret.boxboat.io/"
-	SecretNamesAnnotationKey                      = "dockhand.boxboat.io/secretNames"
-	SecretChecksumAnnotationKey                   = "dockhand.boxboat.io/secretChecksum"
+	AutoUpdateLabelKey                            = "dhs.dockhand.dev/autoUpdate"
+	DockhandSecretLabelKey                        = "dhs.dockhand.dev/ownedByDockhandSecret"
+	DockhandSecretNamesLabelPrefixKey             = "secret.dhs.dockhand.dev/"
+	SecretNamesAnnotationKey                      = "dhs.dockhand.dev/secretNames"
+	SecretChecksumAnnotationKey                   = "dhs.dockhand.dev/secretChecksum"
 	Ready                             SecretState = "Ready"
 	Pending                           SecretState = "Pending"
 	ErrApplied                        SecretState = "ErrApplied"
@@ -74,8 +74,8 @@ type Vault struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DockhandSecretsProfile is a specification for a DockhandProfile resource
-type DockhandSecretsProfile struct {
+// Profile is a specification for a DockhandProfile resource
+type Profile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -88,8 +88,8 @@ type DockhandSecretsProfile struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DockhandSecret is a specification for a Secret resource.
-type DockhandSecret struct {
+// Secret is a specification for a Secret resource.
+type Secret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 

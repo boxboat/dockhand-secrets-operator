@@ -14,86 +14,72 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controller
+// Package v1 deprecated. TODO remove in next major release
+package v1
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/boxboat/dockcmd/cmd/aws"
 	"github.com/boxboat/dockcmd/cmd/azure"
 	dockcmdCommon "github.com/boxboat/dockcmd/cmd/common"
 	"github.com/boxboat/dockcmd/cmd/gcp"
 	"github.com/boxboat/dockcmd/cmd/vault"
+	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha1"
 	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
+	v2 "github.com/boxboat/dockhand-secrets-operator/pkg/controller/v2"
 	dockhandcontrollers "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dockhand.boxboat.io/v1alpha1"
-	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
-	appscontrollers "github.com/rancher/wrangler/pkg/generated/controllers/apps/v1"
 	corecontrollers "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
-	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 	"os"
-	"sort"
-	"strings"
 	"text/template"
 	"time"
 )
 
-// Handler is the controller implementation for DockhandSecret Resources
+// Handler is the controller implementation for Secret Resources
 type Handler struct {
 	ctx                        context.Context
 	operatorNamespace          string
-	daemonSets                 appscontrollers.DaemonSetClient
-	deployments                appscontrollers.DeploymentClient
 	dhSecretsController        dockhandcontrollers.DockhandSecretController
 	dhSecretsProfileController dockhandcontrollers.DockhandSecretsProfileController
 	dhProfileCache             dockhandcontrollers.DockhandSecretsProfileCache
-	statefulSets               appscontrollers.StatefulSetClient
 	secrets                    corecontrollers.SecretClient
 	funcMap                    template.FuncMap
 	recorder                   record.EventRecorder
+	v2Handler                  *v2.Handler
 }
 
 func Register(
 	ctx context.Context,
 	namespace string,
 	events typedcorev1.EventInterface,
-	daemonsets appscontrollers.DaemonSetController,
-	deployments appscontrollers.DeploymentController,
-	statefulsets appscontrollers.StatefulSetController,
 	secrets corecontrollers.SecretClient,
 	dockhandSecrets dockhandcontrollers.DockhandSecretController,
 	dockhandProfile dockhandcontrollers.DockhandSecretsProfileController,
-	funcMap template.FuncMap) {
+	funcMap template.FuncMap,
+	v2Handler *v2.Handler) {
 
 	h := &Handler{
 		ctx:                        ctx,
 		operatorNamespace:          namespace,
-		daemonSets:                 daemonsets,
-		deployments:                deployments,
 		dhSecretsController:        dockhandSecrets,
 		dhSecretsProfileController: dockhandProfile,
 		dhProfileCache:             dockhandProfile.Cache(),
 		secrets:                    secrets,
-		statefulSets:               statefulsets,
 		funcMap:                    funcMap,
 		recorder:                   buildEventRecorder(events),
+		v2Handler:                  v2Handler,
 	}
 
 	// Register handlers
-	dockhandSecrets.OnChange(ctx, "dockhandsecret-onchange", h.onDockhandSecretChange)
-	dockhandSecrets.OnRemove(ctx, "dockhandsecret-onremove", h.onDockhandSecretRemove)
-	daemonsets.OnChange(ctx, "daemonsets-onchange", h.onDaemonSetChange)
-	deployments.OnChange(ctx, "deployment-onchange", h.onDeploymentChange)
-	statefulsets.OnChange(ctx, "statefulsets-onchange", h.onStatefulSetChange)
-
+	dockhandSecrets.OnChange(ctx, "dockhandsecretv1-onchange", h.onDockhandSecretChange)
+	dockhandSecrets.OnRemove(ctx, "dockhandsecretv1-onremove", h.onDockhandSecretRemove)
 }
 
 func buildEventRecorder(events typedcorev1.EventInterface) record.EventRecorder {
@@ -112,9 +98,9 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.DockhandSecr
 	if secret == nil {
 		return nil, nil
 	}
-	common.Log.Debugf("DockhandSecret remove: %v", secret)
+	common.Log.Debugf("Secret remove: %v", secret)
 	common.Log.Debugf("removing secret=%s from namespace=%s", secret.SecretSpec.Name, secret.Namespace)
-	if err := h.secrets.Delete(secret.Namespace, secret.SecretSpec.Name, &metav1.DeleteOptions{}); err != nil {
+	if err := h.secrets.Delete(secret.Namespace, secret.SecretSpec.Name, &metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 		common.Log.Warnf(
 			"could not delete secret=%s from namespace=%s",
 			secret.SecretSpec.Name,
@@ -135,19 +121,19 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 		common.LogIfError(statusErr)
 	}
 
-	common.Log.Debugf("DockhandSecret change: %v", secret)
+	common.Log.Debugf("Secret change: %v", secret)
 	profile, err := h.dhProfileCache.Get(h.operatorNamespace, secret.Profile)
 
 	if err != nil {
-		common.Log.Warnf("Could not get DockhandSecretsProfile[%s]", secret.Profile)
-		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not get DockhandSecretsProfile[%s]", secret.Profile)
+		common.Log.Warnf("Could not get Profile[%s]", secret.Profile)
+		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not get Profile[%s]", secret.Profile)
 		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
 		common.LogIfError(statusErr)
 		return nil, err
 	}
 
 	if err := h.loadDockhandSecretsProfile(profile); err != nil {
-		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not load DockhandSecretsProfile: %v", err)
+		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not load Profile: %v", err)
 		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
 		common.LogIfError(statusErr)
 		return nil, err
@@ -189,8 +175,8 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 		}
 	}
 
-	// Store reference in Secret to owning DockhandSecret
-	k8sSecret.Labels[dockhand.DockhandSecretLabelKey] = secret.SecretSpec.Name
+	// Store reference in Secret to owning Secret
+	k8sSecret.Labels[dockhandv2.DockhandSecretLabelKey] = secret.SecretSpec.Name
 
 	for k, v := range secret.Data {
 		secretData, err := dockcmdCommon.ParseSecretsTemplate([]byte(v), h.funcMap)
@@ -214,7 +200,7 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 			return nil, err
 		}
 	} else {
-		if _, err := h.secrets.Update(k8sSecret); err == nil{
+		if _, err := h.secrets.Update(k8sSecret); err == nil {
 			h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s updated", secret.Namespace, secret.SecretSpec.Name)
 		} else {
 			h.recorder.Eventf(secret, corev1.EventTypeWarning, "Error", "Secret %s/%s not updated", secret.Namespace, secret.SecretSpec.Name)
@@ -230,133 +216,18 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 		common.LogIfError(err)
 	}
 
-	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + secret.SecretSpec.Name
+	h.v2Handler.UpdateStatefulSets(secret.SecretSpec.Name, secret.Namespace)
+	h.v2Handler.UpdateDaemonSets(secret.SecretSpec.Name, secret.Namespace)
+	h.v2Handler.UpdateDeployments(secret.SecretSpec.Name, secret.Namespace)
 
-	if daemonsets, err := h.daemonSets.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, daemonset := range daemonsets.Items {
-			if _, err := h.processDaemonSet(&daemonset); err != nil {
-				common.Log.Warnf("error updating %s: %v", daemonset.Name, err)
-			}
-		}
-	} else {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-
-	if deployments, err := h.deployments.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, deployment := range deployments.Items {
-			if _, err := h.processDeployment(&deployment); err != nil {
-				common.Log.Warnf("error updating %s: %v", deployment.Name, err)
-			}
-		}
-	} else  {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-
-	if statefulsets, err := h.statefulSets.List(secret.Namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, statefulset := range statefulsets.Items {
-			if _, err := h.processStatefulSet(&statefulset); err != nil {
-				common.Log.Warnf("error updating %s: %v", statefulset.Name, err)
-			}
-		}
-	} else {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
 
 	return nil, nil
-}
-
-func (h *Handler) processDaemonSet(daemonset *v1.DaemonSet) (*v1.DaemonSet, error) {
-	if daemonset.Labels != nil && daemonset.Labels[dockhand.AutoUpdateLabelKey] == "true" {
-
-		labels, annotations := h.getUpdatedLabelsAndAnnotations(
-			daemonset.GetNamespace(),
-			daemonset.GetLabels(),
-			daemonset.Spec.Template.GetAnnotations())
-
-		if val, ok := annotations[dockhand.SecretChecksumAnnotationKey]; ok && val != "" {
-			var patch []k8s.PatchOperation
-			patch = append(patch, k8s.GenerateSpecTemplateAnnotationPatch(daemonset.Spec.Template.GetAnnotations(), annotations)...)
-			patch = append(patch, k8s.GenerateMetadataLabelsPatch(daemonset.GetLabels(), labels)...)
-			patchBytes, _ := json.Marshal(patch)
-
-			if _, err := h.daemonSets.Patch(daemonset.GetNamespace(), daemonset.GetName(), types.JSONPatchType, patchBytes); err != nil {
-				common.Log.Warnf("unable to update %s error:[%v]", daemonset.GetName(), err)
-				return nil, err
-			}
-		}
-	}
-	return nil, nil
-}
-
-func (h *Handler) processDeployment(deployment *v1.Deployment) (*v1.Deployment, error) {
-	if deployment.Labels != nil && deployment.Labels[dockhand.AutoUpdateLabelKey] == "true" {
-		labels, annotations := h.getUpdatedLabelsAndAnnotations(
-			deployment.GetNamespace(),
-			deployment.GetLabels(),
-			deployment.Spec.Template.GetAnnotations())
-
-		if val, ok := annotations[dockhand.SecretChecksumAnnotationKey]; ok && val != "" {
-			var patch []k8s.PatchOperation
-			patch = append(patch, k8s.GenerateSpecTemplateAnnotationPatch(deployment.Spec.Template.GetAnnotations(), annotations)...)
-			patch = append(patch, k8s.GenerateMetadataLabelsPatch(deployment.GetLabels(), labels)...)
-			patchBytes, _ := json.Marshal(patch)
-
-			if _, err := h.deployments.Patch(deployment.GetNamespace(), deployment.GetName(), types.JSONPatchType, patchBytes); err != nil {
-				common.Log.Warnf("unable to update %s error:[%v]", deployment.GetName(), err)
-				return nil, err
-			}
-		}
-	}
-	return nil, nil
-}
-
-func (h *Handler) processStatefulSet(statefulset *v1.StatefulSet) (*v1.StatefulSet, error) {
-	if statefulset.Labels != nil && statefulset.Labels[dockhand.AutoUpdateLabelKey] == "true" {
-		labels, annotations := h.getUpdatedLabelsAndAnnotations(
-			statefulset.GetNamespace(),
-			statefulset.GetLabels(),
-			statefulset.Spec.Template.GetAnnotations())
-
-		if val, ok := annotations[dockhand.SecretChecksumAnnotationKey]; ok && val != "" {
-			var patch []k8s.PatchOperation
-			patch = append(patch, k8s.GenerateSpecTemplateAnnotationPatch(statefulset.Spec.Template.GetAnnotations(), annotations)...)
-			patch = append(patch, k8s.GenerateMetadataLabelsPatch(statefulset.GetLabels(), labels)...)
-			patchBytes, _ := json.Marshal(patch)
-
-			if _, err := h.statefulSets.Patch(statefulset.GetNamespace(), statefulset.GetName(), types.JSONPatchType, patchBytes); err != nil {
-				common.Log.Warnf("unable to update %s error:[%v]", statefulset.GetName(), err)
-				return nil, err
-			}
-		}
-	}
-	return nil, nil
-}
-
-func (h *Handler) onDaemonSetChange(_ string, daemonset *v1.DaemonSet) (*v1.DaemonSet, error) {
-	if daemonset == nil {
-		return nil, nil
-	}
-	return h.processDaemonSet(daemonset)
-}
-
-func (h *Handler) onDeploymentChange(_ string, deployment *v1.Deployment) (*v1.Deployment, error) {
-	if deployment == nil {
-		return nil, nil
-	}
-	return h.processDeployment(deployment)
-}
-
-func (h *Handler) onStatefulSetChange(_ string, statefulset *v1.StatefulSet) (*v1.StatefulSet, error) {
-	if statefulset == nil {
-		return nil, nil
-	}
-	return h.processStatefulSet(statefulset)
 }
 
 func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsProfile) error {
 	if profile.AwsSecretsManager != nil {
 		var err error
-		if aws.CacheTTL, err = time.ParseDuration(profile.AwsSecretsManager.CacheTTL); err != nil{
+		if aws.CacheTTL, err = time.ParseDuration(profile.AwsSecretsManager.CacheTTL); err != nil {
 			return err
 		}
 
@@ -380,7 +251,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsPr
 
 	if profile.AzureKeyVault != nil {
 		var err error
-		if azure.CacheTTL, err = time.ParseDuration(profile.AzureKeyVault.CacheTTL); err != nil{
+		if azure.CacheTTL, err = time.ParseDuration(profile.AzureKeyVault.CacheTTL); err != nil {
 			return err
 		}
 		azure.KeyVaultName = profile.AzureKeyVault.KeyVault
@@ -406,7 +277,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsPr
 
 	if profile.GcpSecretsManager != nil {
 		var err error
-		if gcp.CacheTTL, err = time.ParseDuration(profile.GcpSecretsManager.CacheTTL); err != nil{
+		if gcp.CacheTTL, err = time.ParseDuration(profile.GcpSecretsManager.CacheTTL); err != nil {
 			return err
 		}
 		gcp.Project = profile.GcpSecretsManager.Project
@@ -424,7 +295,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsPr
 
 	if profile.Vault != nil {
 		var err error
-		if vault.CacheTTL, err = time.ParseDuration(profile.Vault.CacheTTL); err != nil{
+		if vault.CacheTTL, err = time.ParseDuration(profile.Vault.CacheTTL); err != nil {
 			return err
 		}
 		vault.Addr = profile.Vault.Addr
@@ -451,46 +322,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.DockhandSecretsPr
 	return nil
 }
 
-func (h *Handler) getUpdatedLabelsAndAnnotations(
-	namespace string,
-	labels map[string]string,
-	annotations map[string]string) (map[string]string, map[string]string) {
-
-	updatedLabels := k8s.CopyStringMap(labels)
-	updatedAnnotations := k8s.CopyStringMap(annotations)
-
-	var secrets []string
-	if val, ok := updatedAnnotations[dockhand.SecretNamesAnnotationKey]; ok {
-		secrets = strings.Split(val, ",")
-	}
-	var dhSecrets []string
-	for _, name := range secrets {
-		if secret, err := h.secrets.Get(namespace, name, metav1.GetOptions{}); err == nil {
-			if val, ok := secret.Labels[dockhand.DockhandSecretLabelKey]; ok {
-				dhSecrets = append(dhSecrets, val)
-			}
-		}
-	}
-	sort.Strings(dhSecrets)
-	for key, label := range updatedLabels {
-		if strings.HasPrefix(label, dockhand.DockhandSecretNamesLabelPrefixKey) {
-			delete(updatedLabels, key)
-		}
-	}
-	for _, dhSecret := range dhSecrets {
-		updatedLabels[dockhand.DockhandSecretNamesLabelPrefixKey+dhSecret] = "true"
-	}
-
-	checksum, err := k8s.GetSecretsChecksum(h.ctx, secrets, namespace)
-	if err != nil {
-		common.Log.Warnf("unable to get checksum secrets=%s in namespace=%s with error[%v]", secrets, namespace, err)
-	}
-	updatedAnnotations[dockhand.SecretChecksumAnnotationKey] = checksum
-
-	return updatedLabels, updatedAnnotations
-}
-
-func (h* Handler) updateDockhandSecretStatus(secret *dockhand.DockhandSecret, state dockhand.SecretState) error {
+func (h *Handler) updateDockhandSecretStatus(secret *dockhand.DockhandSecret, state dockhand.SecretState) error {
 	common.Log.Infof("Updating %s status", secret.Name)
 	secretCopy := secret.DeepCopy()
 	secretCopy.Status.State = state

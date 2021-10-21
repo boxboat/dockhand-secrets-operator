@@ -22,7 +22,8 @@ import (
 	"crypto/sha1"
 	"crypto/tls"
 	"fmt"
-	dockhandv1alpha1 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
+	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha1"
+	dockhandv1 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/gobuffalo/packr/v2/file/resolver/encoding/hex"
 	v1 "k8s.io/api/apps/v1"
@@ -77,7 +78,6 @@ func UpdateDeployment(ctx context.Context, deployment *v1.Deployment, namespace 
 	return clientset.AppsV1().Deployments(namespace).Update(ctx, deployment, metav1.UpdateOptions{})
 }
 
-
 func GetLeaseLock(leaseId string, leaseName string, namespace string) (*resourcelock.LeaseLock, error) {
 	common.Log.Infof("%s requesting %s/%s LeaseLock", leaseId, namespace, leaseName)
 	config, err := rest.InClusterConfig()
@@ -117,7 +117,11 @@ func GetDockhandSecretsListFromK8sSecrets(ctx context.Context, secretNames []str
 	for _, secretName := range secretNames {
 		if secret, err := secretClient.Get(ctx, secretName, metav1.GetOptions{}); !errors.IsNotFound(err) {
 			if secret.Labels != nil {
-				if val, ok := secret.Labels[dockhandv1alpha1.DockhandSecretLabelKey]; ok {
+				// TODO deprecated remove dockhandv1 in future release
+				if val, ok := secret.Labels[dockhandv1.DockhandSecretLabelKey]; ok {
+					dhSecrets = append(dhSecrets, val)
+				}
+				if val, ok := secret.Labels[dockhandv2.DockhandSecretLabelKey]; ok {
 					dhSecrets = append(dhSecrets, val)
 				}
 			}
@@ -180,19 +184,22 @@ func UpdateCABundleForWebhook(ctx context.Context, name string, caBundleBytes []
 		return err
 	}
 
+	change := false
 
-
-	if len(webhook.Webhooks) > 0 && webhook.Webhooks[0].Name == name {
-		// check to see if we are actually updating the CA Bytes
-		if bytes.Compare(webhook.Webhooks[0].ClientConfig.CABundle, caBundleBytes) != 0 {
-			webhook.Webhooks[0].ClientConfig.CABundle = caBundleBytes
-			_, err := webhookClient.Update(context.Background(), webhook, metav1.UpdateOptions{})
-			if err != nil {
-				return err
-			}
-		} else {
-			common.Log.Debugf("no change detected with CA pem - not updating webhook configuration")
+	for idx, _ := range webhook.Webhooks {
+		if bytes.Compare(webhook.Webhooks[idx].ClientConfig.CABundle, caBundleBytes) != 0 {
+			common.Log.Infof("updating %s CABundle", webhook.Webhooks[idx].Name)
+			webhook.Webhooks[idx].ClientConfig.CABundle = caBundleBytes
+			change = true
 		}
+	}
+	if change {
+		_, err := webhookClient.Update(context.Background(), webhook, metav1.UpdateOptions{})
+		if err != nil {
+			return err
+		}
+	} else {
+		common.Log.Debugf("no change detected with CA pem - not updating webhook configuration")
 	}
 
 	return nil

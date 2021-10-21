@@ -262,9 +262,9 @@ func (c *dockhandSecretCache) GetByIndex(indexName, key string) (result []*v1alp
 	return result, nil
 }
 
-type DockhandSecretStatusHandler func(obj *v1alpha1.DockhandSecret, status v1alpha1.DockhandSecretStatus) (v1alpha1.DockhandSecretStatus, error)
+type DockhandSecretStatusHandler func(obj *v1alpha1.DockhandSecret, status v1alpha1.SecretStatus) (v1alpha1.SecretStatus, error)
 
-type DockhandSecretGeneratingHandler func(obj *v1alpha1.DockhandSecret, status v1alpha1.DockhandSecretStatus) ([]runtime.Object, v1alpha1.DockhandSecretStatus, error)
+type DockhandSecretGeneratingHandler func(obj *v1alpha1.DockhandSecret, status v1alpha1.SecretStatus) ([]runtime.Object, v1alpha1.SecretStatus, error)
 
 func RegisterDockhandSecretStatusHandler(ctx context.Context, controller DockhandSecretController, condition condition.Cond, name string, handler DockhandSecretStatusHandler) {
 	statusHandler := &dockhandSecretStatusHandler{
@@ -358,7 +358,7 @@ func (a *dockhandSecretGeneratingHandler) Remove(key string, obj *v1alpha1.Dockh
 		ApplyObjects()
 }
 
-func (a *dockhandSecretGeneratingHandler) Handle(obj *v1alpha1.DockhandSecret, status v1alpha1.DockhandSecretStatus) (v1alpha1.DockhandSecretStatus, error) {
+func (a *dockhandSecretGeneratingHandler) Handle(obj *v1alpha1.DockhandSecret, status v1alpha1.SecretStatus) (v1alpha1.SecretStatus, error) {
 	if !obj.DeletionTimestamp.IsZero() {
 		return status, nil
 	}
