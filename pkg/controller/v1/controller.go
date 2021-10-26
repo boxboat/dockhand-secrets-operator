@@ -78,8 +78,8 @@ func Register(
 	}
 
 	// Register handlers
-	dockhandSecrets.OnChange(ctx, "dockhandsecretv1-onchange", h.onDockhandSecretChange)
-	dockhandSecrets.OnRemove(ctx, "dockhandsecretv1-onremove", h.onDockhandSecretRemove)
+	dockhandSecrets.OnChange(ctx, "dockhandsecret-onchange", h.onDockhandSecretChange)
+	dockhandSecrets.OnRemove(ctx, "dockhandsecret-onremove", h.onDockhandSecretRemove)
 }
 
 func buildEventRecorder(events typedcorev1.EventInterface) record.EventRecorder {
