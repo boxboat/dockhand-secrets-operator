@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1alpha2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -93,10 +93,15 @@ type Secret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Data       map[string]string    `json:"data"`
-	SecretSpec SecretSpec           `json:"secretSpec"`
-	Profile string       `json:"profile"`
-	Status  SecretStatus `json:"status,omitempty"`
+	Data       map[string]string `json:"data"`
+	SecretSpec SecretSpec        `json:"secretSpec"`
+	Profile    ProfileRef        `json:"profile"`
+	Status     SecretStatus      `json:"status,omitempty"`
+}
+
+type ProfileRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 // SecretSpec defines the kubernetes secret data to use for the secret managed by a Secret

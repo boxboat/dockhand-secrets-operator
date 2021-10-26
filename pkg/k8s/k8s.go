@@ -22,7 +22,7 @@ import (
 	"crypto/sha1"
 	"crypto/tls"
 	"fmt"
-	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha1"
+	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	dockhandv1 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/gobuffalo/packr/v2/file/resolver/encoding/hex"

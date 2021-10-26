@@ -24,7 +24,7 @@ import (
 	dockcmdCommon "github.com/boxboat/dockcmd/cmd/common"
 	"github.com/boxboat/dockcmd/cmd/gcp"
 	"github.com/boxboat/dockcmd/cmd/vault"
-	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha1"
+	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	v2 "github.com/boxboat/dockhand-secrets-operator/pkg/controller/v2"

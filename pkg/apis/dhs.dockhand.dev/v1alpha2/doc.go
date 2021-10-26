@@ -17,4 +17,4 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 // +groupName=dhs.dockhand.dev
-package v1alpha1
+package v1alpha2

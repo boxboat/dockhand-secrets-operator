@@ -42,6 +42,7 @@ type OperatorArgs struct {
 	MasterURL      string
 	KubeconfigFile string
 	Namespace      string
+	CrossNamespaceProfileAccessAuthorized bool
 }
 
 var (
@@ -122,9 +123,10 @@ var startOperatorCmd = &cobra.Command{
 			apps.Apps().V1().Deployment(),
 			apps.Apps().V1().StatefulSet(),
 			core.Core().V1().Secret(),
-			dhv2.Dhs().V1alpha1().Secret(),
-			dhv2.Dhs().V1alpha1().Profile(),
-			funcMap)
+			dhv2.Dhs().V1alpha2().Secret(),
+			dhv2.Dhs().V1alpha2().Profile(),
+			funcMap,
+			operatorArgs.CrossNamespaceProfileAccessAuthorized)
 
 		// TODO deprecated remove v1
 		controllerv1.Register(
@@ -166,6 +168,12 @@ func init() {
 		"namespace",
 		"",
 		"Namespace where the operator is deployed.")
+
+	startOperatorCmd.PersistentFlags().BoolVar(
+		&operatorArgs.CrossNamespaceProfileAccessAuthorized,
+		"allow-cross-namespace",
+		false,
+		"Allow Secrets to specify Profiles in external namespaces. i.e. Secret Alpha in namespace alpha could reference a profile in namespace Bravo")
 
 	startOperatorCmd.PersistentFlags().StringVar(
 		&aws.Region,

@@ -19,15 +19,16 @@ package v2
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/boxboat/dockcmd/cmd/aws"
 	"github.com/boxboat/dockcmd/cmd/azure"
 	dockcmdCommon "github.com/boxboat/dockcmd/cmd/common"
 	"github.com/boxboat/dockcmd/cmd/gcp"
 	"github.com/boxboat/dockcmd/cmd/vault"
-	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha1"
+	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	dockhandv1 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
-	dockhandcontrollers "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dhs.dockhand.dev/v1alpha1"
+	dockhandcontrollers "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dhs.dockhand.dev/v1alpha2"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
 	appscontrollers "github.com/rancher/wrangler/pkg/generated/controllers/apps/v1"
 	corecontrollers "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
@@ -60,6 +61,7 @@ type Handler struct {
 	secrets                    corecontrollers.SecretClient
 	funcMap                    template.FuncMap
 	recorder                   record.EventRecorder
+	crossNamespaceAuthorized   bool
 }
 
 func Register(
@@ -72,7 +74,8 @@ func Register(
 	secrets corecontrollers.SecretClient,
 	dockhandSecrets dockhandcontrollers.SecretController,
 	dockhandProfile dockhandcontrollers.ProfileController,
-	funcMap template.FuncMap) *Handler {
+	funcMap template.FuncMap,
+	crossNamespaceAuthorized bool) *Handler {
 
 	h := &Handler{
 		ctx:                        ctx,
@@ -86,6 +89,7 @@ func Register(
 		statefulSets:               statefulsets,
 		funcMap:                    funcMap,
 		recorder:                   buildEventRecorder(events),
+		crossNamespaceAuthorized:   crossNamespaceAuthorized,
 	}
 
 	// Register handlers
@@ -138,11 +142,37 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 	}
 
 	common.Log.Debugf("Secret change: %v", secret)
-	profile, err := h.dhProfileCache.Get(h.operatorNamespace, secret.Profile)
+	profileNamespace := secret.Namespace
+	if secret.Profile.Namespace != "" {
+		profileNamespace = secret.Profile.Namespace
+	}
+	if secret.Namespace != profileNamespace && !h.crossNamespaceAuthorized {
+		err := fmt.Errorf(
+			"could not access Profile[%s] in external namespace %s, cross namespace profile access is disabled",
+			secret.Profile,
+			profileNamespace)
+		h.recorder.Eventf(
+			secret,
+			corev1.EventTypeWarning,
+			"ErrUnauthorized",
+			"Could not access Profile[%s] in external namespace %s",
+			secret.Profile,
+			profileNamespace)
+		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+		common.LogIfError(statusErr)
+		return nil, err
+	}
+	profile, err := h.dhProfileCache.Get(profileNamespace, secret.Profile.Name)
 
 	if err != nil {
-		common.Log.Warnf("Could not get Profile[%s]", secret.Profile)
-		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not get Profile[%s]", secret.Profile)
+		common.Log.Warnf("could not get profile %s/%s", profileNamespace, secret.Profile.Name)
+		h.recorder.Eventf(
+			secret,
+			corev1.EventTypeWarning,
+			"ErrLoadingProfile",
+			"Could not get profile %s/%s",
+			profileNamespace,
+			secret.Profile)
 		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
 		common.LogIfError(statusErr)
 		return nil, err
@@ -216,7 +246,7 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 			return nil, err
 		}
 	} else {
-		if _, err := h.secrets.Update(k8sSecret); err == nil{
+		if _, err := h.secrets.Update(k8sSecret); err == nil {
 			h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s updated", secret.Namespace, secret.SecretSpec.Name)
 		} else {
 			h.recorder.Eventf(secret, corev1.EventTypeWarning, "Error", "Secret %s/%s not updated", secret.Namespace, secret.SecretSpec.Name)
@@ -241,7 +271,7 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 
 func (h *Handler) ProcessDaemonSet(daemonset *v1.DaemonSet) (*v1.DaemonSet, error) {
 	// TODO remove v1
-	if daemonset.Labels != nil && daemonset.Labels[dockhand.AutoUpdateLabelKey] == "true" || daemonset.Labels[dockhandv1.AutoUpdateLabelKey] == "true"{
+	if daemonset.Labels != nil && daemonset.Labels[dockhand.AutoUpdateLabelKey] == "true" || daemonset.Labels[dockhandv1.AutoUpdateLabelKey] == "true" {
 
 		labels, annotations := h.GetUpdatedLabelsAndAnnotations(
 			daemonset.GetNamespace(),
@@ -265,7 +295,7 @@ func (h *Handler) ProcessDaemonSet(daemonset *v1.DaemonSet) (*v1.DaemonSet, erro
 
 func (h *Handler) ProcessDeployment(deployment *v1.Deployment) (*v1.Deployment, error) {
 	// TODO remove v1
-	if deployment.Labels != nil && deployment.Labels[dockhand.AutoUpdateLabelKey] == "true" || deployment.Labels[dockhandv1.AutoUpdateLabelKey] == "true"{
+	if deployment.Labels != nil && deployment.Labels[dockhand.AutoUpdateLabelKey] == "true" || deployment.Labels[dockhandv1.AutoUpdateLabelKey] == "true" {
 		labels, annotations := h.GetUpdatedLabelsAndAnnotations(
 			deployment.GetNamespace(),
 			deployment.GetLabels(),
@@ -333,7 +363,7 @@ func (h *Handler) UpdateDaemonSets(dockhandSecretName, namespace string) {
 
 func (h *Handler) ProcessStatefulSet(statefulset *v1.StatefulSet) (*v1.StatefulSet, error) {
 	// TODO remove v1
-	if statefulset.Labels != nil && statefulset.Labels[dockhand.AutoUpdateLabelKey] == "true" || statefulset.Labels[dockhandv1.AutoUpdateLabelKey] == "true"{
+	if statefulset.Labels != nil && statefulset.Labels[dockhand.AutoUpdateLabelKey] == "true" || statefulset.Labels[dockhandv1.AutoUpdateLabelKey] == "true" {
 		labels, annotations := h.GetUpdatedLabelsAndAnnotations(
 			statefulset.GetNamespace(),
 			statefulset.GetLabels(),
@@ -378,7 +408,7 @@ func (h *Handler) onStatefulSetChange(_ string, statefulset *v1.StatefulSet) (*v
 func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 	if profile.AwsSecretsManager != nil {
 		var err error
-		if aws.CacheTTL, err = time.ParseDuration(profile.AwsSecretsManager.CacheTTL); err != nil{
+		if aws.CacheTTL, err = time.ParseDuration(profile.AwsSecretsManager.CacheTTL); err != nil {
 			return err
 		}
 
@@ -402,7 +432,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 
 	if profile.AzureKeyVault != nil {
 		var err error
-		if azure.CacheTTL, err = time.ParseDuration(profile.AzureKeyVault.CacheTTL); err != nil{
+		if azure.CacheTTL, err = time.ParseDuration(profile.AzureKeyVault.CacheTTL); err != nil {
 			return err
 		}
 		azure.KeyVaultName = profile.AzureKeyVault.KeyVault
@@ -428,7 +458,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 
 	if profile.GcpSecretsManager != nil {
 		var err error
-		if gcp.CacheTTL, err = time.ParseDuration(profile.GcpSecretsManager.CacheTTL); err != nil{
+		if gcp.CacheTTL, err = time.ParseDuration(profile.GcpSecretsManager.CacheTTL); err != nil {
 			return err
 		}
 		gcp.Project = profile.GcpSecretsManager.Project
@@ -446,7 +476,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 
 	if profile.Vault != nil {
 		var err error
-		if vault.CacheTTL, err = time.ParseDuration(profile.Vault.CacheTTL); err != nil{
+		if vault.CacheTTL, err = time.ParseDuration(profile.Vault.CacheTTL); err != nil {
 			return err
 		}
 		vault.Addr = profile.Vault.Addr
@@ -512,7 +542,7 @@ func (h *Handler) GetUpdatedLabelsAndAnnotations(
 	return updatedLabels, updatedAnnotations
 }
 
-func (h*Handler) updateDockhandSecretStatus(secret *dockhand.Secret, state dockhand.SecretState) error {
+func (h *Handler) updateDockhandSecretStatus(secret *dockhand.Secret, state dockhand.SecretState) error {
 	common.Log.Infof("Updating %s status", secret.Name)
 	secretCopy := secret.DeepCopy()
 	secretCopy.Status.State = state

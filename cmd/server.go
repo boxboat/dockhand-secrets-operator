@@ -20,7 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha1"
+	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/webhook"

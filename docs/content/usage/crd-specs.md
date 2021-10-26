@@ -10,10 +10,10 @@ weight: -50
 
 ```
 KIND:     Profile
-VERSION:  dhs.dockhand.dev/v1alpha1
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 DESCRIPTION:
-     Holds configuration details for a DockhandSecretProfile
+     Holds configuration details for a Profile
 
 FIELDS:
    apiVersion	<string>
@@ -54,7 +54,7 @@ FIELDS:
 ### Profile.awsSecretsManager
 ```
 KIND:     Profile
-VERSION:  dhs.dockhand.dev/v1alpha1
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: awsSecretsManager <Object>
 
@@ -79,7 +79,7 @@ FIELDS:
 ### Profile.azureKeyVault
 ```
 KIND:     Profile
-VERSION:  dhs.dockhand.dev/v1alpha1
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: azureKeyVault <Object>
 
@@ -107,7 +107,7 @@ FIELDS:
 ### Profile.gcpSecretsManager
 ```
 KIND:     Profile
-VERSION:  dhs.dockhand.dev/v1alpha1
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: gcpSecretsManager <Object>
 
@@ -131,7 +131,7 @@ FIELDS:
 ### Profile.vault
 ```
 KIND:     Profile
-VERSION:  dhs.dockhand.dev/v1alpha1
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: vault <Object>
 
@@ -157,10 +157,10 @@ FIELDS:
      Reference to secret containing the Vault Token
 ```
 
-## DockhandSecret
+## Dockhand Secret
 ```
 KIND:     Secret
-VERSION:  dhs.dockhand.dev/v1alpha1
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 DESCRIPTION:
      Secret Object
@@ -189,19 +189,20 @@ FIELDS:
      Standard object's metadata. More info:
      https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 
-   profile	<string>
-     Name of the Profile to use for this secret
+   profile	<Object>
+     Profile to use for this secret
 
    secretSpec	<Object>
      Specification to use for creating the Kubernetes Secret
-     
-   status <Object>
+
+   status	<Object>
+     Provides basic status for a DockhandSecret
 ```
 
 ### Secret.secretSpec
 ```
 KIND:     Secret
-VERSION:  dhs.dockhand.dev/v1alpha1
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: secretSpec <Object>
 

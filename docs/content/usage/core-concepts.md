@@ -11,10 +11,12 @@ weight: -90
 ## Dockhand Profile
 A `Profile` can contain one or more secrets backends and provides the `dockhand-secrets-operator` with the information it needs to connect to a Secrets Manager.
 
+Note that `dockhand-secrets-operator` has to 2 main operating modes. One that will allow cross namespace access to Dockhand `Profiles` and the default mode which blocks cross namespace access. The default mode supports  multi-tenant usage by requiring a `Profile` in each namespace. If you are running a single-tenant cluster and prefer to maintain one profile, then the flag `--allow-cross-namespace` will allow you to specify a `Profile` in another namespace for the operator to utilize. For simplicity the examples below assume a single tenant use case where the `Profile` exists in the `dockhand-secrets-operator` namespace. 
+
 ### Example: Dockhand Profile
 ```yaml
 ---
-apiVersion: dhs.dockhand.dev/v1alpha1
+apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Profile
 metadata:
   name: dockhand-profile
@@ -76,12 +78,14 @@ Dockhand `Secret` supports retrieval of an AWS Secrets Manager `json` secret usi
 Suppose you have an AWS Secrets Manager Secret named `dockhand-test`, which has `json` data `{ "alpha": "s3cr3t", "bravo": "another-s3cr3t" }`. The following Dockhand `Secret` would generate create an `Opaque` `Secret` in the `aws` namespace.
 ```yaml
 ---
-apiVersion: dhs.dockhand.dev/v1alpha1
+apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Secret
 metadata:
   name: example-aws-dockhand
   namespace: aws
-profile: dockhand-profile
+profile: 
+  name: dockhand-profile
+  namespace: dockhand-secrets-operator
 secretSpec:
   name: example-aws-secret
   type: Opaque
@@ -120,7 +124,7 @@ Suppose you have an Azure Key Vault Secret named `dockhand-test`, which has `jso
 
 ```yaml
 ---
-apiVersion: dhs.dockhand.dev/v1alpha1
+apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Secret
 metadata:
   name: example-azure-dockhand
@@ -157,7 +161,7 @@ Suppose you have an GCP Secrets Manager Secret named `dockhand-test`, which has 
 
 ```yaml
 ---
-apiVersion: dhs.dockhand.dev/v1alpha1
+apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Secret
 metadata:
   name: example-gcp-dockhand
@@ -193,7 +197,7 @@ Dockhand `Secret` supports retrieval of an AWS Secrets Manager `json` secret usi
 Suppose you have a Vault Secret named `dockhand-test`, which has `json` data `{ "alpha": "s3cr3t", "bravo": "another-s3cr3t" }`. The following Dockhand `Secret` would generate create an `Opaque` `Secret` in the `vault` namespace.
 ```yaml
 ---
-apiVersion: dhs.dockhand.dev/v1alpha1
+apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Secret
 metadata:
   name: example-vault-dockhand
@@ -244,7 +248,7 @@ annotations:
 ### Helm Chart Example
 A helm chart example might look like:
 ```yaml
-apiVersion: dhs.dockhand.dev/v1alpha1
+apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Secret
 metadata:
   name: {{ include "dockhand-demo.fullname" . }}

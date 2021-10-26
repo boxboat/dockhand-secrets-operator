@@ -18,12 +18,12 @@ limitations under the License.
 package dhs
 
 import (
-	v1alpha1 "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dhs.dockhand.dev/v1alpha1"
+	v1alpha2 "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dhs.dockhand.dev/v1alpha2"
 	"github.com/rancher/lasso/pkg/controller"
 )
 
 type Interface interface {
-	V1alpha1() v1alpha1.Interface
+	V1alpha2() v1alpha2.Interface
 }
 
 type group struct {
@@ -37,6 +37,6 @@ func New(controllerFactory controller.SharedControllerFactory) Interface {
 	}
 }
 
-func (g *group) V1alpha1() v1alpha1.Interface {
-	return v1alpha1.New(g.controllerFactory)
+func (g *group) V1alpha2() v1alpha2.Interface {
+	return v1alpha2.New(g.controllerFactory)
 }

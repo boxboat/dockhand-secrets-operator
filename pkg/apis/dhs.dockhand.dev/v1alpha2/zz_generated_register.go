@@ -17,7 +17,7 @@ limitations under the License.
 
 // +k8s:deepcopy-gen=package
 // +groupName=dhs.dockhand.dev
-package v1alpha1
+package v1alpha2
 
 import (
 	dhs "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev"
@@ -32,7 +32,7 @@ var (
 )
 
 // SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{Group: dhs.GroupName, Version: "v1alpha1"}
+var SchemeGroupVersion = schema.GroupVersion{Group: dhs.GroupName, Version: "v1alpha2"}
 
 // Kind takes an unqualified kind and returns back a Group qualified GroupKind
 func Kind(kind string) schema.GroupKind {

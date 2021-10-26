@@ -18,23 +18,35 @@ The operator installation deploys the CRDs, the controller and a mutating webhoo
 ### CustomResourceDefinitions
 `dockhand-secrets-operator` makes use of 2 CRDs to manage `Secrets`. One provides the data required for the operator to connect to the secrets manager(s) and the other manages `Secrets`
 
-### :warning: Deprecation Notice :warning:
+### :warning: v1alpha1 Deprecation Notice :warning:
 *`DockhandSecretsProfile` has been deprecated in favor of `Profile`*
 
 *`DockhandSecret` has been deprecated in favor of `Secret`*
 
-`DockhandSecretsProfile` and `DockhandSecret` will continue to be supported for at least one major release. Migration to new CRDs only changes the `apiVersion` and `kind`, all other fields remain the same. The motivation for this change is ensure that the `helm` `Kind` sorter creates a `secret.dhs.dockhand.dev` before attempting to create `Deployments`, `StatefulSets` or `DaemonSets` See [kind_sorter](https://github.com/helm/helm/blob/release-3.0/pkg/releaseutil/kind_sorter.go) and open [issue](https://github.com/helm/helm/issues/8439) to allow custom sorting. 
+`DockhandSecretsProfile` and `DockhandSecret` will continue to be supported for at least one major release. Migration to new CRDs only changes the `apiVersion` and `kind`. The motivation for the `kind` change is ensure that the `helm` `Kind` sorter creates a `secret.dhs.dockhand.dev` before attempting to create `Deployments`, `StatefulSets` or `DaemonSets` See [kind_sorter](https://github.com/helm/helm/blob/release-3.0/pkg/releaseutil/kind_sorter.go) and open [issue](https://github.com/helm/helm/issues/8439) to allow custom sorting. 
+
+#### Deprecation `version: v1alpha1 DockhandProfile`
+* `version: dockhand.boxboat.io/v1alpha1` -> `version: dhs.dockhand.dev/v1alpha2`
+* `kind: DockhandProfile` -> `kind: Profile`
+
+#### Deprecation `version: v1alpha1 DockhandSecret`
+* `version: dockhand.boxboat.io/v1alpha1` -> `version: dhs.dockhand.dev/v1alpha2`
+* `kind: DockhandSecret` -> `kind: Secret`
+* `profile: <profile-name>` -> `profile.name: <profile-name>` `profile.namespace: <profile-namespace>`
+    * `profile` field is now an object that contains a `name` and `namespace` field.
+    * `v1alpha1` assumed `DockhandProfiles` existed in `dockhand-secrets-operator` namespace and did not support multi-tenant use case. `v1alpha2` allows the operator to operate in a multi-tenant mode or a single tenant mode where `Profiles` can be referenced in any namespace where the `dockhand-secrets-operator` has read access.
 
 #### Dockhand Profile
 
+Example of how to create a `Profile`. 
 
-Example of how to create a `Profile`
+Note that `dockhand-secrets-operator` has to 2 main operating modes. One that will allow cross namespace access to Dockhand `Profiles` and the default mode which blocks cross namespace access. The default mode supports  multi-tenant usage by requiring a `Profile` in each namespace. If you are running a single-tenant cluster then the flag `--allow-cross-namespace` will allow you to specify a `Profile` in another namespace for the operator to utilize.
 
 The `cacheTTL` field allows you to control how long a Secrets Manager response is cached by the operator. The default is 60 seconds which prevents the `dockhand-secrets-operator` from abusing the Secrets Backend.
 
 ```yaml
 ---
-apiVersion: dhs.dockhand.dev/v1alpha1
+apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Profile
 metadata:
   name: test-dockhand-profile
@@ -81,7 +93,7 @@ data:
 ```
 
 #### Dockhand Secret
-The Dockhand `Secret` is essentially a go template with alternate delimiters `<< >>` so that you can use it in a Helm chart. The operator is built off [dockcmd](https://github.com/boxboat/dockcmd). Sprig functions are supported and specific versions of secrets are supported through the use of `?version=` on the secret name. For simplicity `?version=latest` will work with all of the backends but specific versions require the value expected by the backend.
+The Dockhand `Secret` is essentially a go template with alternate delimiters `<< >>` so that you can use it in a Helm chart. The operator is built off [dockcmd](https://github.com/boxboat/dockcmd). Sprig functions are supported and specific versions of secrets are supported through the use of `?version=` on the secret name. For simplicity `?version=latest` will work with all the backends but specific versions require the value expected by the backend.
 
 Note that GCP and Azure have 2 forms of supported secrets `text` or `json`. The text version will return the entire secret stored in the key/value where as the json version will interpret the stored value as `json` and allow you retrieve a single `key` in the secret.
 
@@ -91,11 +103,13 @@ The `profile` field allows you to specify the Dockhand `SecretProfile`, which gi
 
 ```yaml
 ---
-apiVersion: dhs.dockhand.dev/v1alpha1
+apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Secret
 metadata:
   name: dockhand-example-secret
-profile: dockhand-profile
+profile: 
+  name: dockhand-profile
+  namespace: dockhand-secrets-operator
 secretSpec:
   name: example-secret
   type: Opaque
