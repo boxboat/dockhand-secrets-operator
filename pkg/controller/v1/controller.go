@@ -198,9 +198,9 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 			return nil, err
 		}
 	} else {
-		currGeneration := k8sSecret.Generation
+		currVersion := k8sSecret.ResourceVersion
 		if result, err := h.secrets.Update(k8sSecret); err == nil {
-			if currGeneration != result.Generation {
+			if currVersion != result.ResourceVersion {
 				h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s updated", secret.Namespace, secret.SecretSpec.Name)
 			}
 		} else {
