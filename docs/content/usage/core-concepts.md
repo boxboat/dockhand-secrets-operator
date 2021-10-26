@@ -6,12 +6,13 @@ weight: -90
 
 {{< toc >}}
 
-
+## Single vs Multi-Tenant
+With the `v1alpha2` types, the `dockhand-secrets-operator` supports the multi-tenant use case by requiring a `Profile` to be defined in each namespace that utilizes a Dockhand `Secret` by default. If you do not require multi-tenant security then you can enable cross-namespace access through the [helm chart](https://github.com/boxboat/dockhand-charts/blob/master/dockhand-secrets-operator/values.yaml) or by passing `--allow-cross-namespace` to the controller. This will allow Dockhand `Secrets` to reference a `Profile` in any namespace where the operator has read access.
 
 ## Dockhand Profile
 A `Profile` can contain one or more secrets backends and provides the `dockhand-secrets-operator` with the information it needs to connect to a Secrets Manager.
 
-Note that `dockhand-secrets-operator` has to 2 main operating modes. One that will allow cross namespace access to Dockhand `Profiles` and the default mode which blocks cross namespace access. The default mode supports  multi-tenant usage by requiring a `Profile` in each namespace. If you are running a single-tenant cluster and prefer to maintain one profile, then the flag `--allow-cross-namespace` will allow you to specify a `Profile` in another namespace for the operator to utilize. For simplicity the examples below assume a single tenant use case where the `Profile` exists in the `dockhand-secrets-operator` namespace. 
+For simplicity the examples below assume a single tenant use case where the `Profile` exists in the `dockhand-secrets-operator` namespace. 
 
 ### Example: Dockhand Profile
 ```yaml

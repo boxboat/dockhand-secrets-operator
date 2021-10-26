@@ -86,10 +86,6 @@ func (server *Server) mutate(ar *admissionv1.AdmissionReview) *admissionv1.Admis
 	}
 }
 
-//func (server *Server) mutateDockhandSecret(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
-//
-//}
-
 func (server *Server) mutateDaemonSet(ar *admissionv1.AdmissionReview) *admissionv1.AdmissionResponse {
 	req := ar.Request
 	ds := &appsv1.DaemonSet{}
