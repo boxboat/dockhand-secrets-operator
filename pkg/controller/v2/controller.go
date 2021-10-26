@@ -136,11 +136,6 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		return nil, nil
 	}
 
-	if secret.Status.State == "" {
-		statusErr := h.updateDockhandSecretStatus(secret, dockhand.Pending)
-		common.LogIfError(statusErr)
-	}
-
 	common.Log.Debugf("Secret change: %v", secret)
 	profileNamespace := secret.Namespace
 	if secret.Profile.Namespace != "" {
@@ -185,7 +180,10 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		return nil, err
 	}
 
-	k8sSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{})
+
+	k8sCacheSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{})
+
+	var k8sSecret *corev1.Secret
 
 	newSecret := false
 	if errors.IsNotFound(err) {
@@ -201,11 +199,12 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 			Data: make(map[string][]byte),
 		}
 	} else {
-		if k8sSecret.Labels == nil {
-			k8sSecret.Labels = make(map[string]string)
+		k8sSecret = k8sCacheSecret.DeepCopy()
+		if k8sCacheSecret.Labels == nil {
+			k8sCacheSecret.Labels = make(map[string]string)
 		}
-		if k8sSecret.Annotations == nil {
-			k8sSecret.Annotations = make(map[string]string)
+		if k8sCacheSecret.Annotations == nil {
+			k8sCacheSecret.Annotations = make(map[string]string)
 		}
 	}
 
@@ -224,6 +223,8 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 	// Store reference in Secret to owning Secret
 	k8sSecret.Labels[dockhand.DockhandSecretLabelKey] = secret.SecretSpec.Name
 
+	// clear data
+	k8sSecret.Data = make(map[string][]byte)
 	for k, v := range secret.Data {
 		secretData, err := dockcmdCommon.ParseSecretsTemplate([]byte(v), h.funcMap)
 		if err != nil {
@@ -246,8 +247,11 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 			return nil, err
 		}
 	} else {
-		if _, err := h.secrets.Update(k8sSecret); err == nil {
-			h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s updated", secret.Namespace, secret.SecretSpec.Name)
+		currVersion := k8sSecret.Generation
+		if result, err := h.secrets.Update(k8sSecret); err == nil {
+			if result.Generation != currVersion {
+				h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s updated", secret.Namespace, secret.SecretSpec.Name)
+			}
 		} else {
 			h.recorder.Eventf(secret, corev1.EventTypeWarning, "Error", "Secret %s/%s not updated", secret.Namespace, secret.SecretSpec.Name)
 			statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
