@@ -93,10 +93,10 @@ type DockhandSecret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Data       map[string]string    `json:"data"`
-	SecretSpec SecretSpec           `json:"secretSpec"`
-	Profile string       `json:"profile"`
-	Status  SecretStatus `json:"status,omitempty"`
+	Data       map[string]string `json:"data"`
+	SecretSpec SecretSpec        `json:"secretSpec"`
+	Profile    string            `json:"profile"`
+	Status     SecretStatus      `json:"status,omitempty"`
 }
 
 // SecretSpec defines the kubernetes secret data to use for the secret managed by a Secret
@@ -108,5 +108,6 @@ type SecretSpec struct {
 }
 
 type SecretStatus struct {
-	State SecretState `json:"state"`
+	State              SecretState `json:"state"`
+	ObservedGeneration int64       `json:"observedGeneration"`
 }

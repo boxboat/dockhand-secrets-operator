@@ -113,5 +113,6 @@ type SecretSpec struct {
 }
 
 type SecretStatus struct {
-	State SecretState `json:"state"`
+	State              SecretState `json:"state"`
+	ObservedGeneration int64       `json:"observedGeneration"`
 }

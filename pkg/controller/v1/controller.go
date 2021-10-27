@@ -112,7 +112,14 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.DockhandSecr
 }
 
 func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecret) (*dockhand.DockhandSecret, error) {
+	// secret has been deleted so just return
 	if secret == nil {
+		return nil, nil
+	}
+
+	// Ready Secret, Generation and observedGeneration match - no change required
+	if secret.Generation == secret.Status.ObservedGeneration && secret.Status.State == dockhand.Ready {
+		common.Log.Debugf("skipping update %s metadata.generation[%d]==status.observedGeneration[%d]", secret.Name, secret.Generation, secret.Status.ObservedGeneration)
 		return nil, nil
 	}
 
@@ -327,6 +334,10 @@ func (h *Handler) updateDockhandSecretStatus(secret *dockhand.DockhandSecret, st
 	common.Log.Infof("Updating %s status", secret.Name)
 	secretCopy := secret.DeepCopy()
 	secretCopy.Status.State = state
+	// generation successfully processed so store observedGeneration
+	if state == dockhand.Ready {
+		secretCopy.Status.ObservedGeneration = secret.Generation
+	}
 	_, err := h.dhSecretsController.UpdateStatus(secretCopy)
 
 	return err
