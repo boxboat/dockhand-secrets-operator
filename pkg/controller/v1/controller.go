@@ -158,17 +158,18 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.DockhandSecr
 			Data: make(map[string][]byte),
 		}
 	} else {
-		if k8sCacheSecret.Labels == nil {
+		k8sSecret = k8sCacheSecret.DeepCopy()
+		if k8sSecret.Labels == nil {
 			k8sSecret.Labels = make(map[string]string)
 		}
-		if k8sCacheSecret.Annotations == nil {
+		if k8sSecret.Annotations == nil {
 			k8sSecret.Annotations = make(map[string]string)
 		}
 	}
 
 	if secret.SecretSpec.Labels != nil {
 		for k, v := range secret.SecretSpec.Labels {
-			k8sCacheSecret.Labels[k] = v
+			k8sSecret.Labels[k] = v
 		}
 	}
 
