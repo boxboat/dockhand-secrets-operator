@@ -6,14 +6,14 @@ weight: -50
 
 {{< toc >}}
 
-## DockhandSecretsProfile
+## Profile
 
 ```
-KIND:     DockhandSecretsProfile
-VERSION:  dockhand.boxboat.io/v1alpha1
+KIND:     Profile
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 DESCRIPTION:
-     Holds configuration details for a DockhandSecretProfile
+     Holds configuration details for a Profile
 
 FIELDS:
    apiVersion	<string>
@@ -51,10 +51,10 @@ FIELDS:
      roleId/secretId or with a Vault Token.
 ```
 
-### DockhandSecretsProfile.awsSecretsManager
+### Profile.awsSecretsManager
 ```
-KIND:     DockhandSecretsProfile
-VERSION:  dockhand.boxboat.io/v1alpha1
+KIND:     Profile
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: awsSecretsManager <Object>
 
@@ -76,10 +76,10 @@ FIELDS:
      Name of secret containing AWS IAM Secret Access Key
 ```
 
-### DockhandSecretsProfile.azureKeyVault
+### Profile.azureKeyVault
 ```
-KIND:     DockhandSecretsProfile
-VERSION:  dockhand.boxboat.io/v1alpha1
+KIND:     Profile
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: azureKeyVault <Object>
 
@@ -104,10 +104,10 @@ FIELDS:
      Azure Tenant ID where the Key Vault resides
 ```
 
-### DockhandSecretsProfile.gcpSecretsManager
+### Profile.gcpSecretsManager
 ```
-KIND:     DockhandSecretsProfile
-VERSION:  dockhand.boxboat.io/v1alpha1
+KIND:     Profile
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: gcpSecretsManager <Object>
 
@@ -128,10 +128,10 @@ FIELDS:
      The GCP Project to reference for this profile
 ```
 
-### DockhandSecretsProfile.vault
+### Profile.vault
 ```
-KIND:     DockhandSecretsProfile
-VERSION:  dockhand.boxboat.io/v1alpha1
+KIND:     Profile
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: vault <Object>
 
@@ -157,13 +157,13 @@ FIELDS:
      Reference to secret containing the Vault Token
 ```
 
-## DockhandSecret
+## Dockhand Secret
 ```
-KIND:     DockhandSecret
-VERSION:  dockhand.boxboat.io/v1alpha1
+KIND:     Secret
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 DESCRIPTION:
-     DockhandSecret Object
+     Secret Object
 
 FIELDS:
    apiVersion	<string>
@@ -189,19 +189,20 @@ FIELDS:
      Standard object's metadata. More info:
      https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 
-   profile	<string>
-     Name of the DockhandSecretsProfile to use for this secret
+   profile	<Object>
+     Profile to use for this secret
 
    secretSpec	<Object>
      Specification to use for creating the Kubernetes Secret
-     
-   status <Object>
+
+   status	<Object>
+     Provides basic status for a DockhandSecret
 ```
 
-### DockhandSecret.secretSpec
+### Secret.secretSpec
 ```
-KIND:     DockhandSecret
-VERSION:  dockhand.boxboat.io/v1alpha1
+KIND:     Secret
+VERSION:  dhs.dockhand.dev/v1alpha2
 
 RESOURCE: secretSpec <Object>
 
@@ -211,11 +212,11 @@ DESCRIPTION:
 FIELDS:
    annotations	<>
      Optional additional annotations to add to the secret managed by this
-     DockhandSecret
+     Secret
 
    labels	<>
      Optional additional labels to add to the secret managed by this
-     DockhandSecret
+     Secret
 
    name	<string>
      Name of the secret that will be created or updated with the processed

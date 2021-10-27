@@ -20,7 +20,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
+	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/webhook"
@@ -106,7 +106,7 @@ func ensureTLSCertificateSecretInCluster(ctx context.Context) {
 		common.Log.Infof("Renewing self signed certificate")
 		caPem, caKey, err := common.GenerateSelfSignedCA(serverArgs.serviceName + "-ca")
 		common.ExitIfError(err)
-		err = k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName+".dockhand.boxboat.io", caPem)
+		err = k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName+".dhs.dockhand.dev", caPem)
 		common.ExitIfError(err)
 		dnsNames := []string{
 			serverArgs.serviceName + "." + serverArgs.serviceNamespace,
@@ -130,7 +130,7 @@ func ensureTLSCertificateSecretInCluster(ctx context.Context) {
 			common.Log.Warnf("Could not update deployment %v", err)
 		}
 	} else {
-		err = k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName + ".dockhand.boxboat.io", caPem)
+		err = k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName + ".dhs.dockhand.dev", caPem)
 		common.LogIfError(err)
 	}
 

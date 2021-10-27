@@ -17,7 +17,8 @@ limitations under the License.
 package main
 
 import (
-	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
+	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
+	boxboat "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	controllergen "github.com/rancher/wrangler/pkg/controller-gen"
 	"github.com/rancher/wrangler/pkg/controller-gen/args"
 	// Ensure gvk gets loaded in wrangler/pkg/gvk cache
@@ -31,8 +32,15 @@ func main() {
 		Groups: map[string]args.Group{
 			"dockhand.boxboat.io": {
 				Types: []interface{}{
-					dockhand.DockhandSecret{},
-					dockhand.DockhandSecretsProfile{},
+					boxboat.DockhandSecret{},
+					boxboat.DockhandSecretsProfile{},
+				},
+				GenerateTypes: true,
+			},
+			"dhs.dockhand.dev": {
+				Types: []interface{}{
+					dockhand.Secret{},
+					dockhand.Profile{},
 				},
 				GenerateTypes: true,
 			},

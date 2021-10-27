@@ -23,8 +23,10 @@ import (
 	"github.com/boxboat/dockcmd/cmd/gcp"
 	"github.com/boxboat/dockcmd/cmd/vault"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
-	"github.com/boxboat/dockhand-secrets-operator/pkg/controller"
-	"github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dockhand.boxboat.io"
+	controllerv1 "github.com/boxboat/dockhand-secrets-operator/pkg/controller/v1"
+	controllerv2 "github.com/boxboat/dockhand-secrets-operator/pkg/controller/v2"
+	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dhs.dockhand.dev"
+	dockhandv1 "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dockhand.boxboat.io"
 	"github.com/rancher/wrangler/pkg/generated/controllers/apps"
 	"github.com/rancher/wrangler/pkg/generated/controllers/core"
 	"github.com/rancher/wrangler/pkg/kubeconfig"
@@ -40,6 +42,7 @@ type OperatorArgs struct {
 	MasterURL      string
 	KubeconfigFile string
 	Namespace      string
+	CrossNamespaceProfileAccessAuthorized bool
 }
 
 var (
@@ -107,10 +110,12 @@ var startOperatorCmd = &cobra.Command{
 		// Generated controllers
 		apps := apps.NewFactoryFromConfigOrDie(cfg)
 		core := core.NewFactoryFromConfigOrDie(cfg)
-		dh := dockhand.NewFactoryFromConfigOrDie(cfg)
+		// TODO deprecated remove v1
+		dhv1 := dockhandv1.NewFactoryFromConfigOrDie(cfg)
+		dhv2 := dockhandv2.NewFactoryFromConfigOrDie(cfg)
 		kubeClient := kubernetes.NewForConfigOrDie(cfg)
 
-		controller.Register(
+		v2handler := controllerv2.Register(
 			cmd.Context(),
 			operatorArgs.Namespace,
 			kubeClient.CoreV1().Events(""),
@@ -118,12 +123,24 @@ var startOperatorCmd = &cobra.Command{
 			apps.Apps().V1().Deployment(),
 			apps.Apps().V1().StatefulSet(),
 			core.Core().V1().Secret(),
-			dh.Dockhand().V1alpha1().DockhandSecret(),
-			dh.Dockhand().V1alpha1().DockhandSecretsProfile(),
-			funcMap)
+			dhv2.Dhs().V1alpha2().Secret(),
+			dhv2.Dhs().V1alpha2().Profile(),
+			funcMap,
+			operatorArgs.CrossNamespaceProfileAccessAuthorized)
+
+		// TODO deprecated remove v1
+		controllerv1.Register(
+			cmd.Context(),
+			operatorArgs.Namespace,
+			kubeClient.CoreV1().Events(""),
+			core.Core().V1().Secret(),
+			dhv1.Dockhand().V1alpha1().DockhandSecret(),
+			dhv1.Dockhand().V1alpha1().DockhandSecretsProfile(),
+			funcMap,
+			v2handler)
 
 		// Start all the controllers
-		if err := start.All(cmd.Context(), 2, apps, dh); err != nil {
+		if err := start.All(cmd.Context(), 2, apps, dhv1, dhv2); err != nil {
 			logrus.Fatalf("Error starting: %s", err.Error())
 		}
 		<-cmd.Context().Done()
@@ -151,6 +168,12 @@ func init() {
 		"namespace",
 		"",
 		"Namespace where the operator is deployed.")
+
+	startOperatorCmd.PersistentFlags().BoolVar(
+		&operatorArgs.CrossNamespaceProfileAccessAuthorized,
+		"allow-cross-namespace",
+		false,
+		"Allow Secrets to specify Profiles in external namespaces. i.e. Secret Alpha in namespace alpha could reference a profile in namespace Bravo")
 
 	startOperatorCmd.PersistentFlags().StringVar(
 		&aws.Region,

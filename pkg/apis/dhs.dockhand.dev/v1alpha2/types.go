@@ -14,18 +14,18 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package v1alpha2
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
-	AutoUpdateLabelKey                            = "dockhand.boxboat.io/autoUpdate"
-	DockhandSecretLabelKey                        = "dockhand.boxboat.io/ownedByDockhandSecret"
-	DockhandSecretNamesLabelPrefixKey             = "dockhandsecret.boxboat.io/"
-	SecretNamesAnnotationKey                      = "dockhand.boxboat.io/secretNames"
-	SecretChecksumAnnotationKey                   = "dockhand.boxboat.io/secretChecksum"
+	AutoUpdateLabelKey                            = "dhs.dockhand.dev/autoUpdate"
+	DockhandSecretLabelKey                        = "dhs.dockhand.dev/ownedByDockhandSecret"
+	DockhandSecretNamesLabelPrefixKey             = "secret.dhs.dockhand.dev/"
+	SecretNamesAnnotationKey                      = "dhs.dockhand.dev/secretNames"
+	SecretChecksumAnnotationKey                   = "dhs.dockhand.dev/secretChecksum"
 	Ready                             SecretState = "Ready"
 	Pending                           SecretState = "Pending"
 	ErrApplied                        SecretState = "ErrApplied"
@@ -74,8 +74,8 @@ type Vault struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DockhandSecretsProfile is a specification for a DockhandProfile resource
-type DockhandSecretsProfile struct {
+// Profile is a specification for a DockhandProfile resource
+type Profile struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -88,15 +88,20 @@ type DockhandSecretsProfile struct {
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// DockhandSecret is a specification for a Secret resource.
-type DockhandSecret struct {
+// Secret is a specification for a Secret resource.
+type Secret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Data       map[string]string `json:"data"`
 	SecretSpec SecretSpec        `json:"secretSpec"`
-	Profile    string            `json:"profile"`
+	Profile    ProfileRef        `json:"profile"`
 	Status     SecretStatus      `json:"status,omitempty"`
+}
+
+type ProfileRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
 }
 
 // SecretSpec defines the kubernetes secret data to use for the secret managed by a Secret

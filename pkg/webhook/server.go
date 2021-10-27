@@ -20,7 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
+	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
+	dockhandv1 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
 	"io/ioutil"
@@ -58,7 +59,11 @@ func (server *Server) Init() {
 // Check labels for whether the target resource needs to be mutated
 func mutationRequired(labels map[string]string) bool {
 	inject := false
-	if _, ok := labels[dockhand.AutoUpdateLabelKey]; ok {
+	// TODO v1 deprecated remove in later version
+	if _, ok := labels[dockhandv1.AutoUpdateLabelKey]; ok {
+		inject = true
+	}
+	if _, ok := labels[dockhandv2.AutoUpdateLabelKey]; ok {
 		inject = true
 	}
 	return inject
@@ -356,40 +361,42 @@ func processDockhandSecretAnnotations(
 	secrets := getSecretsSetFromPodSpec(podSpec)
 	sort.Strings(secrets)
 
-	// block for no more than 15 seconds
-	attempt := 0
-	for {
-		if checksum, err := k8s.GetSecretsChecksum(context.Background(), secrets, namespace); err == nil {
-			updatedAnnotations[dockhand.SecretChecksumAnnotationKey] = checksum
-			break
-		} else {
-			if attempt < 5 {
-				common.Log.Warnf("unable to calculate checksum - retrying:[%v]", err)
-			} else {
-				common.Log.Warnf("unable to calculate checksum after 5th attempt:[%v]", err)
-				updatedAnnotations[dockhand.SecretChecksumAnnotationKey] = ""
+	if len(secrets) > 0 {
+		// block for no more than 15 seconds
+		attempt := 0
+		for {
+			if checksum, err := k8s.GetSecretsChecksum(context.Background(), secrets, namespace); err == nil {
+				updatedAnnotations[dockhandv2.SecretChecksumAnnotationKey] = checksum
 				break
+			} else {
+				if attempt < 5 {
+					common.Log.Warnf("unable to calculate checksum - retrying:[%v]", err)
+				} else {
+					common.Log.Warnf("unable to calculate checksum after 5th attempt:[%v]", err)
+					updatedAnnotations[dockhandv2.SecretChecksumAnnotationKey] = ""
+					break
+				}
+			}
+			attempt += 1
+			time.Sleep(3 * time.Second)
+		}
+
+		dhSecrets, err := k8s.GetDockhandSecretsListFromK8sSecrets(context.Background(), secrets, namespace)
+		if err != nil {
+			common.Log.Warnf("%v", err)
+		}
+
+		for key, label := range updatedLabels {
+			if strings.HasPrefix(label, dockhandv2.DockhandSecretNamesLabelPrefixKey) {
+				delete(updatedLabels, key)
 			}
 		}
-		attempt += 1
-		time.Sleep(3 * time.Second)
-	}
-
-	dhSecrets, err := k8s.GetDockhandSecretsListFromK8sSecrets(context.Background(), secrets, namespace)
-	if err != nil {
-		common.Log.Warnf("%v", err)
-	}
-
-	for key, label := range updatedLabels {
-		if strings.HasPrefix(label, dockhand.DockhandSecretNamesLabelPrefixKey) {
-			delete(updatedLabels, key)
+		for _, dhSecret := range dhSecrets {
+			updatedLabels[dockhandv2.DockhandSecretNamesLabelPrefixKey+dhSecret] = "true"
 		}
-	}
-	for _, dhSecret := range dhSecrets {
-		updatedLabels[dockhand.DockhandSecretNamesLabelPrefixKey+dhSecret] = "true"
-	}
 
-	updatedAnnotations[dockhand.SecretNamesAnnotationKey] = strings.Join(secrets, ",")
+		updatedAnnotations[dockhandv2.SecretNamesAnnotationKey] = strings.Join(secrets, ",")
+	}
 
 	return updatedLabels, updatedAnnotations
 }
