@@ -266,3 +266,13 @@ secretSpec:
 data:
   alphaDB: 'postgresql://user:<< (aws {{ (printf "dockhand-demo-%s-db-password" .Values.environment) | quote }} "alpha") >>@{{ .Values.postgres.host }}:{{ .Values.postgres.port }}/db'
 ```
+
+
+## Auto Updates
+For `DaemonSets`, `Deployments` and `StatefulSets` you can insert the following label, which make the `dockhand-secrets-operator` auto roll those types when a Dockhand `Secret` updates the `Secret` it owns.
+
+```yaml
+metadata:
+  labels:
+    dhs.dockhand.dev/autoUpdate: "true"
+```

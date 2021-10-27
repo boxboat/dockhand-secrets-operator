@@ -12,7 +12,7 @@ Creation of arbitrary Kubernetes Secrets for your application deployments should
 
 `dockhand-secrets-operator` gives you the next best thing a `CustomResourceDefinition` - Dockhand `Secret` that has feature parity with a Kubernetes `Secret` manifest. The `Secret` feels like a regular `Secret` but provides a familiar Go templating syntax that will allow the operator to make your Kubernets `Secret` during your manifest deployment.
 
-`dockhand-secrets-operator` can also provide automatic rollover of `Deployments`, `DaemonSets` and `StatefulSets` - with the addition a single `Label`.
+`dockhand-secrets-operator` can also provide automatic rollover of `Deployments`, `DaemonSets` and `StatefulSets` - with the addition of a single `Label`.
 
 ## How it works
 `dockhand-secrets-operator` monitors the creation and update of Dockhand `Secret`, parses the spec and creates a corresponding Kubernetes `Secrets`. Optionally, with addition of a label on a `Deployment`, `StatefulSet` or `DaemonSet` the operator will also checksum the secret and insert a managed annotation, which will trigger an update in accordance with the update policy on each of those types. 
