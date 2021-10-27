@@ -206,11 +206,11 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		}
 	} else {
 		k8sSecret = k8sCacheSecret.DeepCopy()
-		if k8sCacheSecret.Labels == nil {
-			k8sCacheSecret.Labels = make(map[string]string)
+		if k8sSecret.Labels == nil {
+			k8sSecret.Labels = make(map[string]string)
 		}
-		if k8sCacheSecret.Annotations == nil {
-			k8sCacheSecret.Annotations = make(map[string]string)
+		if k8sSecret.Annotations == nil {
+			k8sSecret.Annotations = make(map[string]string)
 		}
 	}
 
