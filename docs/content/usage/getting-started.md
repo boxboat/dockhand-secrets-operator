@@ -38,6 +38,8 @@ Start adding Dockhand `Secrets` to your deployment manifests! See [core-concepts
 ## Deprecations
 See [crd-specs](/usage/crd-specs) for current full specifications
 
+Note removed in `1.0.0`
+
 ### Deprecation `version: v1alpha1 DockhandProfile`
 Changes:
 * `version: dockhand.boxboat.io/v1alpha1` -> `version: dhs.dockhand.dev/v1alpha2`

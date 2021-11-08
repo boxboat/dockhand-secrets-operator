@@ -23,7 +23,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
-	dockhandv1 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/gobuffalo/packr/v2/file/resolver/encoding/hex"
 	v1 "k8s.io/api/apps/v1"
@@ -43,15 +42,13 @@ type PatchOperation struct {
 	Value interface{} `json:"value,omitempty"`
 }
 
-const certRenewalTime = 30
-
 func CopyStringMap(source map[string]string) map[string]string {
 
-	copy := make(map[string]string)
+	mapCopy := make(map[string]string)
 	for k, v := range source {
-		copy[k] = v
+		mapCopy[k] = v
 	}
-	return copy
+	return mapCopy
 }
 
 func GetDeployment(ctx context.Context, name string, namespace string) (*v1.Deployment, error) {
@@ -117,10 +114,6 @@ func GetDockhandSecretsListFromK8sSecrets(ctx context.Context, secretNames []str
 	for _, secretName := range secretNames {
 		if secret, err := secretClient.Get(ctx, secretName, metav1.GetOptions{}); !errors.IsNotFound(err) {
 			if secret.Labels != nil {
-				// TODO deprecated remove dockhandv1 in future release
-				if val, ok := secret.Labels[dockhandv1.DockhandSecretLabelKey]; ok {
-					dhSecrets = append(dhSecrets, val)
-				}
 				if val, ok := secret.Labels[dockhandv2.DockhandSecretLabelKey]; ok {
 					dhSecrets = append(dhSecrets, val)
 				}
@@ -155,7 +148,7 @@ func GetSecretsChecksum(ctx context.Context, names []string, namespace string) (
 			return "", fmt.Errorf("unable to checksum secret %s/%s", namespace, name)
 		}
 		var keys []string
-		for k, _ := range secret.Data {
+		for k := range secret.Data {
 			keys = append(keys, k)
 		}
 		sort.Strings(keys)
@@ -186,7 +179,7 @@ func UpdateCABundleForWebhook(ctx context.Context, name string, caBundleBytes []
 
 	change := false
 
-	for idx, _ := range webhook.Webhooks {
+	for idx := range webhook.Webhooks {
 		if bytes.Compare(webhook.Webhooks[idx].ClientConfig.CABundle, caBundleBytes) != 0 {
 			common.Log.Infof("updating %s CABundle", webhook.Webhooks[idx].Name)
 			webhook.Webhooks[idx].ClientConfig.CABundle = caBundleBytes
@@ -289,7 +282,7 @@ func GenerateMetadataLabelsPatch(target map[string]string, added map[string]stri
 			})
 		}
 	}
-	for key, _ := range target {
+	for key := range target {
 		if added == nil || added[key] == "" {
 			patch = append(patch, PatchOperation{
 				Op:   "remove",
@@ -325,7 +318,7 @@ func GenerateSpecTemplateAnnotationPatch(target map[string]string, added map[str
 			})
 		}
 	}
-	for key, _ := range target {
+	for key := range target {
 		if added == nil || added[key] == "" {
 			patch = append(patch, PatchOperation{
 				Op:   "remove",
