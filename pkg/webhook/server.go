@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
-	dockhandv1 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
 	"io/ioutil"
@@ -59,10 +58,6 @@ func (server *Server) Init() {
 // Check labels for whether the target resource needs to be mutated
 func mutationRequired(labels map[string]string) bool {
 	inject := false
-	// TODO v1 deprecated remove in later version
-	if _, ok := labels[dockhandv1.AutoUpdateLabelKey]; ok {
-		inject = true
-	}
 	if _, ok := labels[dockhandv2.AutoUpdateLabelKey]; ok {
 		inject = true
 	}

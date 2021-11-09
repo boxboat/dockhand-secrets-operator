@@ -26,12 +26,12 @@ import (
 	"github.com/boxboat/dockcmd/cmd/gcp"
 	"github.com/boxboat/dockcmd/cmd/vault"
 	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
-	dockhandv1 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dockhand.boxboat.io/v1alpha1"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	dockhandcontrollers "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dhs.dockhand.dev/v1alpha2"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
 	appscontrollers "github.com/rancher/wrangler/pkg/generated/controllers/apps/v1"
 	corecontrollers "github.com/rancher/wrangler/pkg/generated/controllers/core/v1"
+	"github.com/rancher/wrangler/pkg/kv"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -58,11 +58,16 @@ type Handler struct {
 	dhSecretsProfileController dockhandcontrollers.ProfileController
 	dhProfileCache             dockhandcontrollers.ProfileCache
 	statefulSets               appscontrollers.StatefulSetClient
-	secrets                    corecontrollers.SecretClient
+	secrets                    corecontrollers.SecretController
 	funcMap                    template.FuncMap
 	recorder                   record.EventRecorder
 	crossNamespaceAuthorized   bool
 }
+
+const (
+	recreateSeconds    = 30
+	syncChangedSeconds = 5
+)
 
 func Register(
 	ctx context.Context,
@@ -71,11 +76,11 @@ func Register(
 	daemonsets appscontrollers.DaemonSetController,
 	deployments appscontrollers.DeploymentController,
 	statefulsets appscontrollers.StatefulSetController,
-	secrets corecontrollers.SecretClient,
+	secrets corecontrollers.SecretController,
 	dockhandSecrets dockhandcontrollers.SecretController,
 	dockhandProfile dockhandcontrollers.ProfileController,
 	funcMap template.FuncMap,
-	crossNamespaceAuthorized bool) *Handler {
+	crossNamespaceAuthorized bool) {
 
 	h := &Handler{
 		ctx:                        ctx,
@@ -95,11 +100,10 @@ func Register(
 	// Register handlers
 	dockhandSecrets.OnChange(ctx, "dockhandsecret-onchange", h.onDockhandSecretChange)
 	dockhandSecrets.OnRemove(ctx, "dockhandsecret-onremove", h.onDockhandSecretRemove)
+	secrets.OnChange(ctx, "secrets-onchange", h.onManagedSecretChange)
 	daemonsets.OnChange(ctx, "daemonsets-onchange", h.onDaemonSetChange)
 	deployments.OnChange(ctx, "deployment-onchange", h.onDeploymentChange)
 	statefulsets.OnChange(ctx, "statefulsets-onchange", h.onStatefulSetChange)
-
-	return h
 }
 
 func buildEventRecorder(events typedcorev1.EventInterface) record.EventRecorder {
@@ -114,6 +118,37 @@ func buildEventRecorder(events typedcorev1.EventInterface) record.EventRecorder 
 	return eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "dockhand-secrets-operator"})
 }
 
+// onManagedSecretChange handler to re-sync Dockhand Secret to managed secret when it is externally deleted or modified.
+func (h *Handler) onManagedSecretChange(key string, secret *corev1.Secret) (*corev1.Secret, error) {
+	if secret == nil {
+		common.Log.Debugf("checking deleted secret %s", key)
+		namespace, name := kv.Split(key, "/")
+		dhsList, err := h.dhSecretsController.List(namespace, metav1.ListOptions{})
+		common.LogIfError(err)
+		for _, dhs := range dhsList.Items {
+			if dhs.SecretSpec.Name == name {
+				common.Log.Infof("managed Secret[%s] deleted externally - enqueuing Dockhand secret[%s/%s]", key, dhs.Namespace, dhs.Name)
+				h.dhSecretsController.EnqueueAfter(dhs.Namespace, dhs.Name, time.Second*recreateSeconds)
+			}
+		}
+		return nil, nil
+	}
+	if secret.Labels != nil {
+		common.Log.Debugf("%s secret change", key)
+		if val, ok := secret.Labels[dockhand.DockhandSecretLabelKey]; ok {
+			common.Log.Debugf("managed secret %s/%s changed", secret.Namespace, secret.Name)
+			if dhSecret, err := h.dhSecretsController.Get(secret.Namespace, val, metav1.GetOptions{}); err == nil {
+				common.Log.Debugf("enqueuing dockhand secret %s/%s", dhSecret.Namespace, dhSecret.Name)
+				h.dhSecretsController.EnqueueAfter(dhSecret.Namespace, dhSecret.Name, time.Second*syncChangedSeconds)
+			} else {
+				common.LogIfError(err)
+			}
+		}
+	}
+	return nil, nil
+}
+
+// onDockhandSecretRemove delete managed Secret when Dockhand Secret is removed.
 func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.Secret) (*dockhand.Secret, error) {
 	if secret == nil {
 		return nil, nil
@@ -131,6 +166,7 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.Secret) (*do
 	return nil, nil
 }
 
+// onDockhandSecretChange handler responsible for creating/updating managed Secrets.
 func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*dockhand.Secret, error) {
 	// secret has been deleted so just return
 	if secret == nil {
@@ -139,8 +175,13 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 
 	// Ready Secret, Generation and observedGeneration match - no change required
 	if secret.Generation == secret.Status.ObservedGeneration && secret.Status.State == dockhand.Ready {
-		common.Log.Debugf("skipping update %s metadata.generation[%d]==status.observedGeneration[%d]", secret.Name, secret.Generation, secret.Status.ObservedGeneration)
-		return nil, nil
+		common.Log.Debugf("%s metadata.generation[%d]==status.observedGeneration[%d]", secret.Name, secret.Generation, secret.Status.ObservedGeneration)
+		managedSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{})
+		// skip update if managedSecret has not been modified or deleted
+		if err == nil && managedSecret.ResourceVersion == secret.Status.ObservedSecretResourceVersion {
+			common.Log.Debugf("skipping update %s", secret.Name)
+			return nil, nil
+		}
 	}
 
 	common.Log.Debugf("Secret change: %v", secret)
@@ -160,7 +201,7 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 			"Could not access Profile[%s] in external namespace %s",
 			secret.Profile,
 			profileNamespace)
-		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+		statusErr := h.updateDockhandSecretStatus(secret, nil, dockhand.ErrApplied)
 		common.LogIfError(statusErr)
 		return nil, err
 	}
@@ -175,14 +216,14 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 			"Could not get profile %s/%s",
 			profileNamespace,
 			secret.Profile)
-		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+		statusErr := h.updateDockhandSecretStatus(secret, nil, dockhand.ErrApplied)
 		common.LogIfError(statusErr)
 		return nil, err
 	}
 
 	if err := h.loadDockhandSecretsProfile(profile); err != nil {
 		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not load Profile: %v", err)
-		statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+		statusErr := h.updateDockhandSecretStatus(secret, nil, dockhand.ErrApplied)
 		common.LogIfError(statusErr)
 		return nil, err
 	}
@@ -226,8 +267,8 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		}
 	}
 
-	// Store reference in Secret to owning Secret
-	k8sSecret.Labels[dockhand.DockhandSecretLabelKey] = secret.SecretSpec.Name
+	// Store reference in K8s Secret to owning Dockhand Secret
+	k8sSecret.Labels[dockhand.DockhandSecretLabelKey] = secret.Name
 
 	// clear data
 	k8sSecret.Data = make(map[string][]byte)
@@ -235,7 +276,7 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		secretData, err := dockcmdCommon.ParseSecretsTemplate([]byte(v), h.funcMap)
 		if err != nil {
 			h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrParsingSecret", "Could not parse template %v", err)
-			statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+			statusErr := h.updateDockhandSecretStatus(secret, nil, dockhand.ErrApplied)
 			common.LogIfError(statusErr)
 			return nil, err
 		}
@@ -243,47 +284,50 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		k8sSecret.Data[k] = secretData
 	}
 
+	var managedSecretUpdate *corev1.Secret
+
 	if newSecret {
-		if _, err := h.secrets.Create(k8sSecret); err == nil {
+		if managedSecretUpdate, err = h.secrets.Create(k8sSecret); err == nil {
 			h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s created", secret.Namespace, secret.SecretSpec.Name)
 		} else {
 			h.recorder.Eventf(secret, corev1.EventTypeWarning, "Error", "Secret %s/%s not created", secret.Namespace, secret.SecretSpec.Name)
-			statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+			statusErr := h.updateDockhandSecretStatus(secret, nil, dockhand.ErrApplied)
 			common.LogIfError(statusErr)
 			return nil, err
 		}
 	} else {
 		currVersion := k8sSecret.ResourceVersion
-		if result, err := h.secrets.Update(k8sSecret); err == nil {
-			if result.ResourceVersion != currVersion {
+		if managedSecretUpdate, err = h.secrets.Update(k8sSecret); err == nil {
+			if managedSecretUpdate.ResourceVersion != currVersion {
 				h.recorder.Eventf(secret, corev1.EventTypeNormal, "Success", "Secret %s/%s updated", secret.Namespace, secret.SecretSpec.Name)
 			}
 		} else {
 			h.recorder.Eventf(secret, corev1.EventTypeWarning, "Error", "Secret %s/%s not updated", secret.Namespace, secret.SecretSpec.Name)
-			statusErr := h.updateDockhandSecretStatus(secret, dockhand.ErrApplied)
+			statusErr := h.updateDockhandSecretStatus(secret, nil, dockhand.ErrApplied)
 			common.LogIfError(statusErr)
 			return nil, err
 		}
 	}
 
 	// if we have made it here the secret is provisioned and ready
-	if err := h.updateDockhandSecretStatus(secret, dockhand.Ready); err != nil {
+	if err := h.updateDockhandSecretStatus(secret, managedSecretUpdate, dockhand.Ready); err != nil {
 		// log status update error but continue
 		common.LogIfError(err)
 	}
 
-	h.UpdateDeployments(secret.SecretSpec.Name, secret.Namespace)
-	h.UpdateDaemonSets(secret.SecretSpec.Name, secret.Namespace)
-	h.UpdateStatefulSets(secret.SecretSpec.Name, secret.Namespace)
+	h.updateDeployments(secret.SecretSpec.Name, secret.Namespace)
+	h.updateDaemonSets(secret.SecretSpec.Name, secret.Namespace)
+	h.updateStatefulSets(secret.SecretSpec.Name, secret.Namespace)
 
 	return nil, nil
 }
 
-func (h *Handler) ProcessDaemonSet(daemonset *v1.DaemonSet) (*v1.DaemonSet, error) {
-	// TODO remove v1
-	if daemonset.Labels != nil && daemonset.Labels[dockhand.AutoUpdateLabelKey] == "true" || daemonset.Labels[dockhandv1.AutoUpdateLabelKey] == "true" {
+// processDaemonSet handler checks DaemonSets for the AutoUpdateLabel and if it is set to true will determine if any
+// of the referenced secrets have been modified.
+func (h *Handler) processDaemonSet(daemonset *v1.DaemonSet) (*v1.DaemonSet, error) {
+	if daemonset.Labels != nil && daemonset.Labels[dockhand.AutoUpdateLabelKey] == "true" {
 
-		labels, annotations := h.GetUpdatedLabelsAndAnnotations(
+		labels, annotations := h.getUpdatedLabelsAndAnnotations(
 			daemonset.GetNamespace(),
 			daemonset.GetLabels(),
 			daemonset.Spec.Template.GetAnnotations())
@@ -303,10 +347,11 @@ func (h *Handler) ProcessDaemonSet(daemonset *v1.DaemonSet) (*v1.DaemonSet, erro
 	return nil, nil
 }
 
-func (h *Handler) ProcessDeployment(deployment *v1.Deployment) (*v1.Deployment, error) {
-	// TODO remove v1
-	if deployment.Labels != nil && deployment.Labels[dockhand.AutoUpdateLabelKey] == "true" || deployment.Labels[dockhandv1.AutoUpdateLabelKey] == "true" {
-		labels, annotations := h.GetUpdatedLabelsAndAnnotations(
+// processDeployment checks Deployments for the AutoUpdateLabel and if it is set to true will determine if any
+// of the referenced secrets have been modified.
+func (h *Handler) processDeployment(deployment *v1.Deployment) (*v1.Deployment, error) {
+	if deployment.Labels != nil && deployment.Labels[dockhand.AutoUpdateLabelKey] == "true" {
+		labels, annotations := h.getUpdatedLabelsAndAnnotations(
 			deployment.GetNamespace(),
 			deployment.GetLabels(),
 			deployment.Spec.Template.GetAnnotations())
@@ -326,55 +371,11 @@ func (h *Handler) ProcessDeployment(deployment *v1.Deployment) (*v1.Deployment, 
 	return nil, nil
 }
 
-// UpdateStatefulSets updates statefulsets in the provided namespace if they reference a dockhand secret
-func (h *Handler) UpdateStatefulSets(dockhandSecretName string, namespace string) {
-	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + dockhandSecretName
-
-	if statefulsets, err := h.statefulSets.List(namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, statefulset := range statefulsets.Items {
-			if _, err := h.ProcessStatefulSet(&statefulset); err != nil {
-				common.Log.Warnf("error updating %s: %v", statefulset.Name, err)
-			}
-		}
-	} else {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-}
-
-// UpdateDeployments updates deployments in the provided namespace if they reference a dockhand secret
-func (h *Handler) UpdateDeployments(dockhandSecretName, namespace string) {
-	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + dockhandSecretName
-
-	if deployments, err := h.deployments.List(namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, deployment := range deployments.Items {
-			if _, err := h.ProcessDeployment(&deployment); err != nil {
-				common.Log.Warnf("error updating %s: %v", deployment.Name, err)
-			}
-		}
-	} else {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-}
-
-// UpdateDaemonSets updates daemonsets in the provided namespace if they reference a dockhand secret
-func (h *Handler) UpdateDaemonSets(dockhandSecretName, namespace string) {
-	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + dockhandSecretName
-
-	if daemonsets, err := h.daemonSets.List(namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
-		for _, daemonset := range daemonsets.Items {
-			if _, err := h.ProcessDaemonSet(&daemonset); err != nil {
-				common.Log.Warnf("error updating %s: %v", daemonset.Name, err)
-			}
-		}
-	} else {
-		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
-	}
-}
-
-func (h *Handler) ProcessStatefulSet(statefulset *v1.StatefulSet) (*v1.StatefulSet, error) {
-	// TODO remove v1
-	if statefulset.Labels != nil && statefulset.Labels[dockhand.AutoUpdateLabelKey] == "true" || statefulset.Labels[dockhandv1.AutoUpdateLabelKey] == "true" {
-		labels, annotations := h.GetUpdatedLabelsAndAnnotations(
+// processStatefulSet checks StatefulSets for the AutoUpdateLabel and if it is set to true will determine if any
+// of the referenced secrets have been modified.
+func (h *Handler) processStatefulSet(statefulset *v1.StatefulSet) (*v1.StatefulSet, error) {
+	if statefulset.Labels != nil && statefulset.Labels[dockhand.AutoUpdateLabelKey] == "true" {
+		labels, annotations := h.getUpdatedLabelsAndAnnotations(
 			statefulset.GetNamespace(),
 			statefulset.GetLabels(),
 			statefulset.Spec.Template.GetAnnotations())
@@ -394,25 +395,70 @@ func (h *Handler) ProcessStatefulSet(statefulset *v1.StatefulSet) (*v1.StatefulS
 	return nil, nil
 }
 
+// updateStatefulSets updates statefulsets in the provided namespace if they reference a dockhand secret
+func (h *Handler) updateStatefulSets(dockhandSecretName string, namespace string) {
+	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + dockhandSecretName
+
+	if statefulsets, err := h.statefulSets.List(namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
+		for _, statefulset := range statefulsets.Items {
+			if _, err := h.processStatefulSet(&statefulset); err != nil {
+				common.Log.Warnf("error updating %s: %v", statefulset.Name, err)
+			}
+		}
+	} else {
+		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
+	}
+}
+
+// updateDeployments updates deployments in the provided namespace if they reference a dockhand secret
+func (h *Handler) updateDeployments(dockhandSecretName, namespace string) {
+	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + dockhandSecretName
+
+	if deployments, err := h.deployments.List(namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
+		for _, deployment := range deployments.Items {
+			if _, err := h.processDeployment(&deployment); err != nil {
+				common.Log.Warnf("error updating %s: %v", deployment.Name, err)
+			}
+		}
+	} else {
+		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
+	}
+}
+
+// updateDaemonSets updates daemonsets in the provided namespace if they reference a dockhand secret
+func (h *Handler) updateDaemonSets(dockhandSecretName, namespace string) {
+	labelSelector := dockhand.DockhandSecretNamesLabelPrefixKey + dockhandSecretName
+
+	if daemonsets, err := h.daemonSets.List(namespace, metav1.ListOptions{LabelSelector: labelSelector}); err == nil {
+		for _, daemonset := range daemonsets.Items {
+			if _, err := h.processDaemonSet(&daemonset); err != nil {
+				common.Log.Warnf("error updating %s: %v", daemonset.Name, err)
+			}
+		}
+	} else {
+		common.Log.Warnf("error listing deployments associated with %s: %v", labelSelector, err)
+	}
+}
+
 func (h *Handler) onDaemonSetChange(_ string, daemonset *v1.DaemonSet) (*v1.DaemonSet, error) {
 	if daemonset == nil {
 		return nil, nil
 	}
-	return h.ProcessDaemonSet(daemonset)
+	return h.processDaemonSet(daemonset)
 }
 
 func (h *Handler) onDeploymentChange(_ string, deployment *v1.Deployment) (*v1.Deployment, error) {
 	if deployment == nil {
 		return nil, nil
 	}
-	return h.ProcessDeployment(deployment)
+	return h.processDeployment(deployment)
 }
 
 func (h *Handler) onStatefulSetChange(_ string, statefulset *v1.StatefulSet) (*v1.StatefulSet, error) {
 	if statefulset == nil {
 		return nil, nil
 	}
-	return h.ProcessStatefulSet(statefulset)
+	return h.processStatefulSet(statefulset)
 }
 
 func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
@@ -513,7 +559,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 	return nil
 }
 
-func (h *Handler) GetUpdatedLabelsAndAnnotations(
+func (h *Handler) getUpdatedLabelsAndAnnotations(
 	namespace string,
 	labels map[string]string,
 	annotations map[string]string) (map[string]string, map[string]string) {
@@ -552,7 +598,7 @@ func (h *Handler) GetUpdatedLabelsAndAnnotations(
 	return updatedLabels, updatedAnnotations
 }
 
-func (h *Handler) updateDockhandSecretStatus(secret *dockhand.Secret, state dockhand.SecretState) error {
+func (h *Handler) updateDockhandSecretStatus(secret *dockhand.Secret, managedSecret *corev1.Secret, state dockhand.SecretState) error {
 	common.Log.Infof("Updating %s status", secret.Name)
 	secretCopy := secret.DeepCopy()
 	secretCopy.Status.State = state
@@ -560,6 +606,11 @@ func (h *Handler) updateDockhandSecretStatus(secret *dockhand.Secret, state dock
 	if state == dockhand.Ready {
 		secretCopy.Status.ObservedGeneration = secret.Generation
 	}
+
+	if managedSecret != nil {
+		secretCopy.Status.ObservedSecretResourceVersion = managedSecret.ResourceVersion
+	}
+
 	_, err := h.dhSecretsController.UpdateStatus(secretCopy)
 
 	return err

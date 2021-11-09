@@ -18,24 +18,6 @@ The operator installation deploys the CRDs, the controller and a mutating webhoo
 ### CustomResourceDefinitions
 `dockhand-secrets-operator` makes use of 2 CRDs to manage `Secrets`. One provides the data required for the operator to connect to the secrets manager(s) and the other manages `Secrets`
 
-### :warning: v1alpha1 Deprecation Notice :warning:
-*`DockhandSecretsProfile` has been deprecated in favor of `Profile`*
-
-*`DockhandSecret` has been deprecated in favor of `Secret`*
-
-`DockhandSecretsProfile` and `DockhandSecret` will continue to be supported for at least one major release. Migration to new CRDs only changes the `apiVersion` and `kind`. The motivation for the `kind` change is ensure that the `helm` `Kind` sorter creates a `secret.dhs.dockhand.dev` before attempting to create `Deployments`, `StatefulSets` or `DaemonSets` See [kind_sorter](https://github.com/helm/helm/blob/release-3.0/pkg/releaseutil/kind_sorter.go) and open [issue](https://github.com/helm/helm/issues/8439) to allow custom sorting. 
-
-#### Deprecation `version: v1alpha1 DockhandProfile`
-* `version: dockhand.boxboat.io/v1alpha1` -> `version: dhs.dockhand.dev/v1alpha2`
-* `kind: DockhandProfile` -> `kind: Profile`
-
-#### Deprecation `version: v1alpha1 DockhandSecret`
-* `version: dockhand.boxboat.io/v1alpha1` -> `version: dhs.dockhand.dev/v1alpha2`
-* `kind: DockhandSecret` -> `kind: Secret`
-* `profile: <profile-name>` -> `profile.name: <profile-name>` `profile.namespace: <profile-namespace>`
-    * `profile` field is now an object that contains a `name` and `namespace` field.
-    * `v1alpha1` assumed `DockhandProfiles` existed in `dockhand-secrets-operator` namespace and did not support multi-tenant use case. `v1alpha2` allows the operator to operate in a multi-tenant mode or a single tenant mode where `Profiles` can be referenced in any namespace where the `dockhand-secrets-operator` has read access.
-
 #### Dockhand Profile
 
 Example of how to create a `Profile`. 
