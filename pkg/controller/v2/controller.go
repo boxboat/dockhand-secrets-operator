@@ -127,7 +127,7 @@ func (h *Handler) onManagedSecretChange(key string, secret *corev1.Secret) (*cor
 		common.LogIfError(err)
 		for _, dhs := range dhsList.Items {
 			if dhs.SecretSpec.Name == name && dhs.DeletionTimestamp == nil {
-				common.Log.Infof("managed Secret[%s] deleted - enqueuing Dockhand secret[%s/%s]", key, dhs.Namespace, dhs.Name)
+				common.Log.Infof("managed secret %s deleted - enqueuing dockhand secret %s/%s after %d seconds", key, dhs.Namespace, dhs.Name, recreateSeconds)
 				h.dhSecretsController.EnqueueAfter(dhs.Namespace, dhs.Name, time.Second*recreateSeconds)
 			}
 		}
@@ -136,9 +136,8 @@ func (h *Handler) onManagedSecretChange(key string, secret *corev1.Secret) (*cor
 	if secret.Labels != nil {
 		common.Log.Debugf("%s secret change", key)
 		if val, ok := secret.Labels[dockhand.DockhandSecretLabelKey]; ok {
-			common.Log.Debugf("managed secret %s/%s changed", secret.Namespace, secret.Name)
 			if dhSecret, err := h.dhSecretsController.Get(secret.Namespace, val, metav1.GetOptions{}); err == nil {
-				common.Log.Debugf("enqueuing dockhand secret %s/%s", dhSecret.Namespace, dhSecret.Name)
+				common.Log.Infof("managed secret %s changed - enqueuing dockhand secret %s/%s after %d seconds", key, dhSecret.Namespace, dhSecret.Name, syncChangedSeconds)
 				h.dhSecretsController.EnqueueAfter(dhSecret.Namespace, dhSecret.Name, time.Second*syncChangedSeconds)
 			} else {
 				common.LogIfError(err)
@@ -153,8 +152,8 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.Secret) (*do
 	if secret == nil {
 		return nil, nil
 	}
-	common.Log.Debugf("Secret remove: %v", secret)
-	common.Log.Debugf("removing secret=%s from namespace=%s", secret.SecretSpec.Name, secret.Namespace)
+	common.Log.Infof("dockhand secret removed %s/%s", secret.Namespace, secret.Name)
+	common.Log.Infof("removing managed secret %s/%s", secret.Namespace, secret.SecretSpec.Name)
 	if err := h.secrets.Delete(secret.Namespace, secret.SecretSpec.Name, &metav1.DeleteOptions{}); err != nil && !errors.IsNotFound(err) {
 		common.Log.Warnf(
 			"could not delete secret=%s from namespace=%s",
@@ -604,7 +603,7 @@ func (h *Handler) getUpdatedLabelsAndAnnotations(
 }
 
 func (h *Handler) updateDockhandSecretStatus(secret *dockhand.Secret, managedSecret *corev1.Secret, state dockhand.SecretState) error {
-	common.Log.Infof("Updating %s status", secret.Name)
+	common.Log.Debugf("updating %s status", secret.Name)
 	secretCopy := secret.DeepCopy()
 	secretCopy.Status.State = state
 	// generation successfully processed so store observedGeneration
