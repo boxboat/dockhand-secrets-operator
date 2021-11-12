@@ -126,8 +126,8 @@ func (h *Handler) onManagedSecretChange(key string, secret *corev1.Secret) (*cor
 		dhsList, err := h.dhSecretsController.List(namespace, metav1.ListOptions{})
 		common.LogIfError(err)
 		for _, dhs := range dhsList.Items {
-			if dhs.SecretSpec.Name == name {
-				common.Log.Infof("managed Secret[%s] deleted externally - enqueuing Dockhand secret[%s/%s]", key, dhs.Namespace, dhs.Name)
+			if dhs.SecretSpec.Name == name && dhs.DeletionTimestamp == nil {
+				common.Log.Infof("managed Secret[%s] deleted - enqueuing Dockhand secret[%s/%s]", key, dhs.Namespace, dhs.Name)
 				h.dhSecretsController.EnqueueAfter(dhs.Namespace, dhs.Name, time.Second*recreateSeconds)
 			}
 		}
@@ -170,6 +170,11 @@ func (h *Handler) onDockhandSecretRemove(_ string, secret *dockhand.Secret) (*do
 func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*dockhand.Secret, error) {
 	// secret has been deleted so just return
 	if secret == nil {
+		return nil, nil
+	}
+
+	// secret is being deleted just return
+	if secret.DeletionTimestamp != nil {
 		return nil, nil
 	}
 
