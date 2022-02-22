@@ -477,7 +477,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 			aws.AccessKeyID = *profile.AwsSecretsManager.AccessKeyId
 		}
 		if profile.AwsSecretsManager.SecretAccessKeyRef != nil {
-			secretData, err := h.secrets.Get(h.operatorNamespace, profile.AwsSecretsManager.SecretAccessKeyRef.Name, metav1.GetOptions{})
+			secretData, err := h.secrets.Get(profile.Namespace, profile.AwsSecretsManager.SecretAccessKeyRef.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -503,7 +503,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 		}
 
 		if profile.AzureKeyVault.ClientSecretRef != nil {
-			secretData, err := h.secrets.Get(h.operatorNamespace, profile.AzureKeyVault.ClientSecretRef.Name, metav1.GetOptions{})
+			secretData, err := h.secrets.Get(profile.Namespace, profile.AzureKeyVault.ClientSecretRef.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -523,7 +523,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 		}
 		gcp.Project = profile.GcpSecretsManager.Project
 		if profile.GcpSecretsManager.CredentialsFileSecretRef != nil {
-			secretData, err := h.secrets.Get(h.operatorNamespace, profile.GcpSecretsManager.CredentialsFileSecretRef.Name, metav1.GetOptions{})
+			secretData, err := h.secrets.Get(profile.Namespace, profile.GcpSecretsManager.CredentialsFileSecretRef.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -544,7 +544,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 			vault.RoleID = *profile.Vault.RoleId
 		}
 		if profile.Vault.SecretIdRef != nil {
-			secretData, err := h.secrets.Get(h.operatorNamespace, profile.Vault.SecretIdRef.Name, metav1.GetOptions{})
+			secretData, err := h.secrets.Get(profile.Namespace, profile.Vault.SecretIdRef.Name, metav1.GetOptions{})
 			if err != nil {
 				return err
 			}
@@ -553,7 +553,7 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 			}
 		}
 		if profile.Vault.TokenRef != nil {
-			secretData, _ := h.secrets.Get(h.operatorNamespace, profile.Vault.TokenRef.Key, metav1.GetOptions{})
+			secretData, _ := h.secrets.Get(profile.Namespace, profile.Vault.TokenRef.Key, metav1.GetOptions{})
 			if secretData != nil {
 				vault.Token = string(secretData.Data["VAULT_TOKEN"])
 			}
