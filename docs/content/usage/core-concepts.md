@@ -130,7 +130,9 @@ kind: Secret
 metadata:
   name: example-azure-dockhand
   namespace: azure
-profile: dockhand-profile
+profile: 
+  name: dockhand-profile
+  namespace: dockhand-secrets-operator
 secretSpec:
   name: example-azure-secret
   type: Opaque
@@ -167,7 +169,9 @@ kind: Secret
 metadata:
   name: example-gcp-dockhand
   namespace: gcp
-profile: dockhand-profile
+profile:
+  name: dockhand-profile
+  namespace: dockhand-secrets-operator
 secretSpec:
   name: example-gcp-secret
   type: Opaque
@@ -203,7 +207,9 @@ kind: Secret
 metadata:
   name: example-vault-dockhand
   namespace: vault
-profile: dockhand-profile
+profile:
+  name: dockhand-profile
+  namespace: dockhand-secrets-operator
 secretSpec:
   name: example-aws-secret
   type: Opaque

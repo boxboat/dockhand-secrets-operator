@@ -20,6 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"sort"
+	"strings"
+	"text/template"
+	"time"
+
 	"github.com/boxboat/dockcmd/cmd/aws"
 	"github.com/boxboat/dockcmd/cmd/azure"
 	dockcmdCommon "github.com/boxboat/dockcmd/cmd/common"
@@ -41,11 +47,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
-	"os"
-	"sort"
-	"strings"
-	"text/template"
-	"time"
 )
 
 // Handler is the controller implementation for Secret Resources
@@ -549,13 +550,13 @@ func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
 				return err
 			}
 			if secretData != nil {
-				vault.SecretID = string(secretData.Data["VAULT_SECRET_ID"])
+				vault.SecretID = string(secretData.Data[profile.Vault.SecretIdRef.Key])
 			}
 		}
 		if profile.Vault.TokenRef != nil {
-			secretData, _ := h.secrets.Get(profile.Namespace, profile.Vault.TokenRef.Key, metav1.GetOptions{})
+			secretData, _ := h.secrets.Get(profile.Namespace, profile.Vault.TokenRef.Name, metav1.GetOptions{})
 			if secretData != nil {
-				vault.Token = string(secretData.Data["VAULT_TOKEN"])
+				vault.Token = string(secretData.Data[profile.Vault.TokenRef.Key])
 			}
 		}
 	}
