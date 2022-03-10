@@ -93,10 +93,11 @@ type Secret struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Data       map[string]string `json:"data"`
-	SecretSpec SecretSpec        `json:"secretSpec"`
-	Profile    ProfileRef        `json:"profile"`
-	Status     SecretStatus      `json:"status,omitempty"`
+	SyncInterval string            `json:"syncInterval"`
+	Data         map[string]string `json:"data"`
+	SecretSpec   SecretSpec        `json:"secretSpec"`
+	Profile      ProfileRef        `json:"profile"`
+	Status       SecretStatus      `json:"status,omitempty"`
 }
 
 type ProfileRef struct {
@@ -116,4 +117,5 @@ type SecretStatus struct {
 	State                         SecretState `json:"state"`
 	ObservedGeneration            int64       `json:"observedGeneration"`
 	ObservedSecretResourceVersion string      `json:"observedSecretResourceVersion"`
+	SyncTimestamp                 string      `json:"syncTimestamp"`
 }

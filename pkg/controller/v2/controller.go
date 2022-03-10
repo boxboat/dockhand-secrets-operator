@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"text/template"
@@ -60,14 +59,18 @@ type Handler struct {
 	dhProfileCache             dockhandcontrollers.ProfileCache
 	statefulSets               appscontrollers.StatefulSetClient
 	secrets                    corecontrollers.SecretController
-	funcMap                    template.FuncMap
 	recorder                   record.EventRecorder
 	crossNamespaceAuthorized   bool
+	awsProfileMap              map[string]*aws.SecretsClient
+	azureProfileMap            map[string]*azure.SecretsClient
+	gcpProfileMap              map[string]*gcp.SecretsClient
+	vaultProfileMap            map[string]*vault.SecretsClient
 }
 
 const (
-	recreateSeconds    = 30
-	syncChangedSeconds = 5
+	recreateSeconds        = 30
+	syncChangedSeconds     = 5
+	minSyncIntervalSeconds = 5
 )
 
 func Register(
@@ -80,7 +83,6 @@ func Register(
 	secrets corecontrollers.SecretController,
 	dockhandSecrets dockhandcontrollers.SecretController,
 	dockhandProfile dockhandcontrollers.ProfileController,
-	funcMap template.FuncMap,
 	crossNamespaceAuthorized bool) {
 
 	h := &Handler{
@@ -93,9 +95,12 @@ func Register(
 		dhProfileCache:             dockhandProfile.Cache(),
 		secrets:                    secrets,
 		statefulSets:               statefulsets,
-		funcMap:                    funcMap,
 		recorder:                   buildEventRecorder(events),
 		crossNamespaceAuthorized:   crossNamespaceAuthorized,
+		awsProfileMap:              make(map[string]*aws.SecretsClient),
+		azureProfileMap:            make(map[string]*azure.SecretsClient),
+		gcpProfileMap:              make(map[string]*gcp.SecretsClient),
+		vaultProfileMap:            make(map[string]*vault.SecretsClient),
 	}
 
 	// Register handlers
@@ -178,12 +183,43 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		return nil, nil
 	}
 
-	// Ready Secret, Generation and observedGeneration match - no change required
+	// Ready Secret, Generation and observedGeneration match - no change necessarily required
 	if secret.Generation == secret.Status.ObservedGeneration && secret.Status.State == dockhand.Ready {
-		common.Log.Debugf("%s metadata.generation[%d]==status.observedGeneration[%d]", secret.Name, secret.Generation, secret.Status.ObservedGeneration)
-		managedSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{})
-		// skip update if managedSecret has not been modified or deleted
-		if err == nil && managedSecret.ResourceVersion == secret.Status.ObservedSecretResourceVersion {
+		updateRequired := false
+
+		// check for syncInterval setting
+		if syncDuration, err := time.ParseDuration(secret.SyncInterval); err == nil && syncDuration.Seconds() > 0 {
+			if syncDuration.Seconds() < minSyncIntervalSeconds {
+				syncDuration = minSyncIntervalSeconds * time.Second
+				common.Log.Warnf("syncInterval for %s/%s < %ds, min %v will be used", secret.Namespace, secret.Name, minSyncIntervalSeconds, syncDuration)
+				h.recorder.Eventf(secret, corev1.EventTypeWarning, "Warn", "syncInterval < %ds, min %v will be used", minSyncIntervalSeconds, syncDuration)
+			}
+			if lastSyncTime, err := time.Parse(time.RFC3339, secret.Status.SyncTimestamp); err == nil {
+				nowTime := time.Now()
+				nextSync := lastSyncTime.Add(syncDuration)
+				// sync update is required
+				if nextSync.Before(nowTime) {
+					updateRequired = true
+				} else {
+					// re-enque after remaining time to next update
+					syncDuration = nextSync.Sub(nowTime) + minSyncIntervalSeconds*time.Second
+				}
+			}
+
+			common.Log.Debugf("enqueing %s/%s for sync after %s", secret.Namespace, secret.Name, syncDuration.String())
+			h.dhSecretsController.EnqueueAfter(secret.Namespace, secret.Name, syncDuration)
+		} else {
+			common.Log.Debugf("%s metadata.generation[%d]==status.observedGeneration[%d]", secret.Name, secret.Generation, secret.Status.ObservedGeneration)
+			if managedSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{}); err == nil {
+				if managedSecret.ResourceVersion != secret.Status.ObservedSecretResourceVersion {
+					updateRequired = true
+				}
+			} else {
+				updateRequired = true
+			}
+		}
+
+		if !updateRequired {
 			common.Log.Debugf("skipping update %s", secret.Name)
 			return nil, nil
 		}
@@ -226,7 +262,8 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		return nil, err
 	}
 
-	if err := h.loadDockhandSecretsProfile(profile); err != nil {
+	profileFunctionMap, err := h.getProfileFuncMap(profile)
+	if err != nil {
 		h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrLoadingProfile", "Could not load Profile: %v", err)
 		statusErr := h.updateDockhandSecretStatus(secret, nil, dockhand.ErrApplied)
 		common.LogIfError(statusErr)
@@ -278,7 +315,9 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 	// clear data
 	k8sSecret.Data = make(map[string][]byte)
 	for k, v := range secret.Data {
-		secretData, err := dockcmdCommon.ParseSecretsTemplate([]byte(v), h.funcMap)
+
+		secretData, err := dockcmdCommon.ParseSecretsTemplate([]byte(v), profileFunctionMap)
+
 		if err != nil {
 			h.recorder.Eventf(secret, corev1.EventTypeWarning, "ErrParsingSecret", "Could not parse template %v", err)
 			statusErr := h.updateDockhandSecretStatus(secret, nil, dockhand.ErrApplied)
@@ -320,9 +359,9 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		common.LogIfError(err)
 	}
 
-	h.updateDeployments(secret.SecretSpec.Name, secret.Namespace)
-	h.updateDaemonSets(secret.SecretSpec.Name, secret.Namespace)
-	h.updateStatefulSets(secret.SecretSpec.Name, secret.Namespace)
+	h.updateDeployments(secret.Name, secret.Namespace)
+	h.updateDaemonSets(secret.Name, secret.Namespace)
+	h.updateStatefulSets(secret.Name, secret.Namespace)
 
 	return nil, nil
 }
@@ -466,102 +505,182 @@ func (h *Handler) onStatefulSetChange(_ string, statefulset *v1.StatefulSet) (*v
 	return h.processStatefulSet(statefulset)
 }
 
-func (h *Handler) loadDockhandSecretsProfile(profile *dockhand.Profile) error {
-	if profile.AwsSecretsManager != nil {
-		var err error
-		if aws.CacheTTL, err = time.ParseDuration(profile.AwsSecretsManager.CacheTTL); err != nil {
-			return err
-		}
+func (h *Handler) getProfileFuncMap(profile *dockhand.Profile) (template.FuncMap, error) {
+	profileName := profile.Namespace + "/" + profile.Name
 
-		aws.Region = profile.AwsSecretsManager.Region
-		if profile.AwsSecretsManager.AccessKeyId != nil {
-			aws.AccessKeyID = *profile.AwsSecretsManager.AccessKeyId
-		}
-		if profile.AwsSecretsManager.SecretAccessKeyRef != nil {
-			secretData, err := h.secrets.Get(profile.Namespace, profile.AwsSecretsManager.SecretAccessKeyRef.Name, metav1.GetOptions{})
+	funcMap := make(template.FuncMap)
+
+	if profile.AwsSecretsManager != nil {
+		client, ok := h.awsProfileMap[profileName]
+		if !ok {
+			common.Log.Debugf("creating new aws client for %s", profileName)
+			opts := []aws.SecretsClientOpt{aws.Region(profile.AwsSecretsManager.Region)}
+
+			if cacheTTL, err := time.ParseDuration(profile.AwsSecretsManager.CacheTTL); err == nil {
+				opts = append(opts, aws.CacheTTL(cacheTTL))
+			} else {
+				return nil, err
+			}
+			accessKeyID := ""
+			secretAccessKey := ""
+			if profile.AwsSecretsManager.AccessKeyId != nil {
+				accessKeyID = *profile.AwsSecretsManager.AccessKeyId
+			}
+
+			if profile.AwsSecretsManager.SecretAccessKeyRef != nil {
+				if secretData, err := h.secrets.Get(profile.Namespace, profile.AwsSecretsManager.SecretAccessKeyRef.Name, metav1.GetOptions{}); err == nil {
+					if secretData != nil {
+						secretAccessKey = string(secretData.Data[profile.AwsSecretsManager.SecretAccessKeyRef.Key])
+					}
+				} else {
+					return nil, err
+				}
+			}
+			if accessKeyID != "" && secretAccessKey != "" {
+				opts = append(opts, aws.AccessKeyIDAndSecretAccessKey(accessKeyID, secretAccessKey))
+			} else {
+				opts = append(opts, aws.UseChainCredentials())
+			}
+
+			var err error
+			client, err = aws.NewSecretsClient(opts...)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if secretData != nil {
-				aws.SecretAccessKey = string(secretData.Data[profile.AwsSecretsManager.SecretAccessKeyRef.Key])
-			}
+			h.awsProfileMap[profileName] = client
 		}
-		if aws.AccessKeyID != "" && aws.SecretAccessKey != "" {
-			aws.UseChainCredentials = false
-		}
+		funcMap["aws"] = client.GetJSONSecret
+		funcMap["awsJson"] = client.GetJSONSecret
+		funcMap["awsText"] = client.GetTextSecret
 	}
 
 	if profile.AzureKeyVault != nil {
-		var err error
-		if azure.CacheTTL, err = time.ParseDuration(profile.AzureKeyVault.CacheTTL); err != nil {
-			return err
-		}
-		azure.KeyVaultName = profile.AzureKeyVault.KeyVault
-		azure.TenantID = profile.AzureKeyVault.Tenant
+		client, ok := h.azureProfileMap[profileName]
+		if !ok {
+			common.Log.Debugf("creating new azure key vault client for %s", profileName)
+			opts := []azure.SecretsClientOpt{
+				azure.KeyVaultName(profile.AzureKeyVault.KeyVault),
+				azure.TenantID(profile.AzureKeyVault.Tenant)}
 
-		if profile.AzureKeyVault.ClientId != nil {
-			azure.ClientID = *profile.AzureKeyVault.ClientId
-		}
+			if cacheTTL, err := time.ParseDuration(profile.AzureKeyVault.CacheTTL); err == nil {
+				opts = append(opts, azure.CacheTTL(cacheTTL))
+			} else {
+				return nil, err
+			}
 
-		if profile.AzureKeyVault.ClientSecretRef != nil {
-			secretData, err := h.secrets.Get(profile.Namespace, profile.AzureKeyVault.ClientSecretRef.Name, metav1.GetOptions{})
+			clientID := ""
+			clientSecret := ""
+			if profile.AzureKeyVault.ClientId != nil {
+				clientID = *profile.AzureKeyVault.ClientId
+			}
+
+			if profile.AzureKeyVault.ClientSecretRef != nil {
+				if secretData, err := h.secrets.Get(profile.Namespace, profile.AzureKeyVault.ClientSecretRef.Name, metav1.GetOptions{}); err == nil {
+					if secretData != nil {
+						clientSecret = string(secretData.Data[profile.AzureKeyVault.ClientSecretRef.Key])
+					}
+				} else {
+					return nil, err
+				}
+			}
+			if clientID != "" && clientSecret != "" {
+				opts = append(opts, azure.ClientIDAndSecret(clientID, clientSecret))
+			} else {
+				return nil, fmt.Errorf("no valid azure credentials provided in profile %s", profileName)
+			}
+
+			var err error
+			client, err = azure.NewSecretsClient(opts...)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if secretData != nil {
-				azure.ClientSecret = string(secretData.Data[profile.AzureKeyVault.ClientSecretRef.Key])
-			}
+			h.azureProfileMap[profileName] = client
+
 		}
-		_ = os.Setenv("AZURE_TENANT_ID", azure.TenantID)
-		_ = os.Setenv("AZURE_CLIENT_ID", azure.ClientID)
-		_ = os.Setenv("AZURE_CLIENT_SECRET", azure.ClientSecret)
+		funcMap["azureJson"] = client.GetJSONSecret
+		funcMap["azureText"] = client.GetTextSecret
+
 	}
 
 	if profile.GcpSecretsManager != nil {
-		var err error
-		if gcp.CacheTTL, err = time.ParseDuration(profile.GcpSecretsManager.CacheTTL); err != nil {
-			return err
-		}
-		gcp.Project = profile.GcpSecretsManager.Project
-		if profile.GcpSecretsManager.CredentialsFileSecretRef != nil {
-			secretData, err := h.secrets.Get(profile.Namespace, profile.GcpSecretsManager.CredentialsFileSecretRef.Name, metav1.GetOptions{})
+		client, ok := h.gcpProfileMap[profileName]
+		if !ok {
+			common.Log.Debugf("creating new gcp client for %s", profileName)
+			opts := []gcp.SecretsClientOpt{gcp.Project(profile.GcpSecretsManager.Project)}
+			if cacheTTL, err := time.ParseDuration(profile.GcpSecretsManager.CacheTTL); err == nil {
+				opts = append(opts, gcp.CacheTTL(cacheTTL))
+			} else {
+				return nil, err
+			}
+			if profile.GcpSecretsManager.CredentialsFileSecretRef != nil {
+				if secretData, err := h.secrets.Get(profile.Namespace, profile.GcpSecretsManager.CredentialsFileSecretRef.Name, metav1.GetOptions{}); err == nil {
+					if secretData != nil {
+						opts = append(opts, gcp.CredentialsJson(secretData.Data[profile.GcpSecretsManager.CredentialsFileSecretRef.Key]))
+					}
+				} else {
+					return nil, err
+				}
+			}
+			var err error
+			client, err = gcp.NewSecretsClient(h.ctx, opts...)
 			if err != nil {
-				return err
+				return nil, err
 			}
-
-			if secretData != nil {
-				gcp.CredentialsJson = secretData.Data[profile.GcpSecretsManager.CredentialsFileSecretRef.Key]
-			}
+			h.gcpProfileMap[profileName] = client
 		}
+		funcMap["gcpJson"] = client.GetJSONSecret
+		funcMap["gcpText"] = client.GetTextSecret
 	}
 
 	if profile.Vault != nil {
-		var err error
-		if vault.CacheTTL, err = time.ParseDuration(profile.Vault.CacheTTL); err != nil {
-			return err
-		}
-		vault.Addr = profile.Vault.Addr
-		if profile.Vault.RoleId != nil {
-			vault.RoleID = *profile.Vault.RoleId
-		}
-		if profile.Vault.SecretIdRef != nil {
-			secretData, err := h.secrets.Get(profile.Namespace, profile.Vault.SecretIdRef.Name, metav1.GetOptions{})
+
+		client, ok := h.vaultProfileMap[profileName]
+		if !ok {
+			common.Log.Debugf("creating new vault client for %s", profileName)
+			opts := []vault.SecretsClientOpt{vault.Address(profile.Vault.Addr)}
+			if cacheTTL, err := time.ParseDuration(profile.Vault.CacheTTL); err == nil {
+				opts = append(opts, vault.CacheTTL(cacheTTL))
+			} else {
+				return nil, err
+			}
+
+			roleID := ""
+			secretID := ""
+			if profile.Vault.RoleId != nil {
+				roleID = *profile.Vault.RoleId
+			}
+			if profile.Vault.SecretIdRef != nil {
+				if secretData, err := h.secrets.Get(profile.Namespace, profile.Vault.SecretIdRef.Name, metav1.GetOptions{}); err == nil {
+					if secretData != nil {
+						secretID = string(secretData.Data[profile.Vault.SecretIdRef.Key])
+					}
+				} else {
+					return nil, err
+				}
+			}
+			if roleID != "" && secretID != "" {
+				opts = append(opts, vault.RoleAndSecretID(roleID, secretID))
+			}
+			if profile.Vault.TokenRef != nil {
+				if secretData, err := h.secrets.Get(profile.Namespace, profile.Vault.TokenRef.Name, metav1.GetOptions{}); err == nil {
+					if secretData != nil {
+						opts = append(opts, vault.Token(string(secretData.Data[profile.Vault.TokenRef.Key])))
+					}
+				} else {
+					return nil, err
+				}
+			}
+			var err error
+			client, err = vault.NewSecretsClient(opts...)
 			if err != nil {
-				return err
+				return nil, err
 			}
-			if secretData != nil {
-				vault.SecretID = string(secretData.Data[profile.Vault.SecretIdRef.Key])
-			}
+			h.vaultProfileMap[profileName] = client
 		}
-		if profile.Vault.TokenRef != nil {
-			secretData, _ := h.secrets.Get(profile.Namespace, profile.Vault.TokenRef.Name, metav1.GetOptions{})
-			if secretData != nil {
-				vault.Token = string(secretData.Data[profile.Vault.TokenRef.Key])
-			}
-		}
+		funcMap["vault"] = client.GetJSONSecret
 	}
 
-	return nil
+	return funcMap, nil
 }
 
 func (h *Handler) getUpdatedLabelsAndAnnotations(
@@ -610,6 +729,7 @@ func (h *Handler) updateDockhandSecretStatus(secret *dockhand.Secret, managedSec
 	// generation successfully processed so store observedGeneration
 	if state == dockhand.Ready {
 		secretCopy.Status.ObservedGeneration = secret.Generation
+		secretCopy.Status.SyncTimestamp = time.Now().Format(time.RFC3339)
 	}
 
 	if managedSecret != nil {

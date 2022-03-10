@@ -22,6 +22,9 @@ import (
 	"crypto/sha1"
 	"crypto/tls"
 	"fmt"
+	"sort"
+	"strings"
+
 	dockhandv2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/gobuffalo/packr/v2/file/resolver/encoding/hex"
@@ -32,8 +35,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	"sort"
-	"strings"
 )
 
 type PatchOperation struct {

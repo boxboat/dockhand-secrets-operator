@@ -17,8 +17,9 @@ limitations under the License.
 package common
 
 import (
-	log "github.com/sirupsen/logrus"
 	"os"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var (
