@@ -197,6 +197,15 @@ FIELDS:
 
    status	<Object>
      Provides basic status for a DockhandSecret
+
+   syncInterval	<string>
+     Specifies the time interval for polling the secrets backend for changes.
+     The default value of 0 indicates that no polling will occur and is the
+     default behavior prior to 1.1.0 release, in this case the operator will
+     only query the backend when a field in the Dockhand Secret CRD has been
+     modified. Valid time units are ns, us, ms, s, m, h, but must exceed 5s
+     (when not 0). Also note that the operator will not poll the backend more
+     frequently than the cacheTTL of the profile referenced by the Secret
 ```
 
 ### Secret.secretSpec

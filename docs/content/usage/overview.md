@@ -15,4 +15,6 @@ Creation of arbitrary Kubernetes Secrets for your application deployments should
 `dockhand-secrets-operator` can also provide automatic rollover of `Deployments`, `DaemonSets` and `StatefulSets` - with the addition of a single `Label`.
 
 ## How it works
-`dockhand-secrets-operator` monitors the creation and update of Dockhand `Secret`, parses the spec and creates a corresponding Kubernetes `Secrets`. Optionally, with addition of a label on a `Deployment`, `StatefulSet` or `DaemonSet` the operator will also checksum the secret and insert a managed annotation, which will trigger an update in accordance with the update policy on each of those types. 
+`dockhand-secrets-operator` monitors the creation and update of Dockhand `Secret`, parses the spec and creates a corresponding Kubernetes `Secrets`. Optionally, with addition of a label on a `Deployment`, `StatefulSet` or `DaemonSet` the operator will also checksum the secret and insert a managed annotation, which will trigger an update in accordance with the update policy on each of those types.
+
+If you wish to have a fully automatic experience, you can enable a `syncInterval` on a per Dockhand `Secret` basis that will instruct the operator to poll your Secrets backend for changes. When a change is detected, the operator will rollout a new `Deployment`, `StatefulSet` or `DaemonSet`.

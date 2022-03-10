@@ -73,6 +73,13 @@ The Dockhand `Secret` will generate a secret of type `secretSpec.type` in the sa
 
 The `profile` field allows you to specify different `Profiles`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
 
+The `syncInterval` field instructs the operator to poll for changes to that particular Dockhand `Secret` - something greater than `5s`. The default is `0s`, which means do not poll. 
+
+#### `syncInterval` Considerations: 
+* Cloud Providers charge for secrets retrieval requests
+* `cacheTTL` is specified in the `Profile` so be aware of your TTL when picking a `syncInterval`.
+* See [Auto Updates](#auto-updates) section below
+
 ### AWS Secrets Manager
 Dockhand `Secret` supports retrieval of an AWS Secrets Manager `json` secret using `<< (aws <secret-name> <json-key>) >>`. The `<secret-name>` supports optional `?version=<version-id>` query string.
 
@@ -87,6 +94,8 @@ metadata:
 profile: 
   name: dockhand-profile
   namespace: dockhand-secrets-operator
+# default 0s - set to an interval greater than 5s to enable polling for changes
+syncInterval: 0s
 secretSpec:
   name: example-aws-secret
   type: Opaque
@@ -210,6 +219,8 @@ metadata:
 profile:
   name: dockhand-profile
   namespace: dockhand-secrets-operator
+# default 0s - set to an interval greater than 5s to enable polling for changes
+syncInterval: 0s
 secretSpec:
   name: example-aws-secret
   type: Opaque
@@ -262,8 +273,13 @@ metadata:
   labels:
     {{- include "dockhand-demo.labels" . | nindent 4 }}
   annotations:
+    # use an annotation like this to force a sync everytime a helm deployment is made
     updateTimestamp: {{ now | date "20060102150405" | quote }}
-profile: dockhand-profile
+profile: 
+  name: dockhand-profile
+  namespace: dockhand-secrets-operator
+# default 0s - set to an interval greater than 5s to enable polling for changes
+syncInterval: 0s
 secretSpec:
   name: {{ include "dockhand-demo.fullname" . }}
   type: Opaque
@@ -275,7 +291,7 @@ data:
 
 
 ## Auto Updates
-For `DaemonSets`, `Deployments` and `StatefulSets` you can insert the following label, which make the `dockhand-secrets-operator` auto roll those types when a Dockhand `Secret` updates the `Secret` it owns.
+For `DaemonSets`, `Deployments` and `StatefulSets` you can insert the following label, which make the `dockhand-secrets-operator` auto roll those types when a Dockhand `Secret` updates the `Secret` it owns. If this option is combined with a `syncInterval` greater than `5s`, then the operator will roll these types over automatically when it updates the k8s `Secret` with changes from your Secrets Backend.
 
 ```yaml
 metadata:
