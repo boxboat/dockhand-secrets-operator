@@ -73,9 +73,11 @@ The Dockhand `Secret` will generate a secret of type `secretSpec.type` in the sa
 
 The `profile` field allows you to specify different `Profiles`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
 
-The `syncInterval` field instructs the operator to poll for changes to that particular Dockhand `Secret` - something greater than `5s`. The default is `0s`, which means do not poll. Things to consider: 
+The `syncInterval` field instructs the operator to poll for changes to that particular Dockhand `Secret` - something greater than `5s`. The default is `0s`, which means do not poll. 
+
+#### `syncInterval` Considerations: 
 * Cloud Providers charge for secrets retrieval requests
-* `cacheTTL` is specified in the `Profile` so setting a `syncInterval` less than the `cacheTTL` does not make sense.
+* `cacheTTL` is specified in the `Profile` so be aware of your TTL when picking a `syncInterval`.
 * See [Auto Updates](#auto-updates) section below
 
 ### AWS Secrets Manager
