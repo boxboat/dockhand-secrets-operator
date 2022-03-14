@@ -60,7 +60,8 @@ RESOURCE: awsSecretsManager <Object>
 
 DESCRIPTION:
      AWS Secrets Manager configuration to allow the Dockhand Secrets Operator to
-     retrieve Secrets from AWS
+     retrieve Secrets from AWS. If no accessKeyId and secretAccessKey are provided
+     then chain credentials will be used.
 
 FIELDS:
    accessKeyId	<string>
