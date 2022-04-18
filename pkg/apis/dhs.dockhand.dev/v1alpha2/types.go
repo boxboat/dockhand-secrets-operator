@@ -115,6 +115,7 @@ type SecretSpec struct {
 
 type SecretStatus struct {
 	State                         SecretState `json:"state"`
+	ObservedAnnotationChecksum    string      `json:"observedAnnotationChecksum"`
 	ObservedGeneration            int64       `json:"observedGeneration"`
 	ObservedSecretResourceVersion string      `json:"observedSecretResourceVersion"`
 	SyncTimestamp                 string      `json:"syncTimestamp"`

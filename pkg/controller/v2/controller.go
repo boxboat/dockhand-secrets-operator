@@ -183,8 +183,13 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		return nil, nil
 	}
 
+	annotationChecksum := k8s.GetAnnotationsChecksum(secret.Annotations)
+
 	// Ready Secret, Generation and observedGeneration match - no change necessarily required
-	if secret.Generation == secret.Status.ObservedGeneration && secret.Status.State == dockhand.Ready {
+	if secret.Generation == secret.Status.ObservedGeneration &&
+		annotationChecksum == secret.Status.ObservedAnnotationChecksum &&
+		secret.Status.State == dockhand.Ready {
+
 		updateRequired := false
 
 		// check for syncInterval setting
@@ -209,7 +214,6 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 			common.Log.Debugf("enqueing %s/%s for sync after %s", secret.Namespace, secret.Name, syncDuration.String())
 			h.dhSecretsController.EnqueueAfter(secret.Namespace, secret.Name, syncDuration)
 		} else {
-			common.Log.Debugf("%s metadata.generation[%d]==status.observedGeneration[%d]", secret.Name, secret.Generation, secret.Status.ObservedGeneration)
 			if managedSecret, err := h.secrets.Get(secret.Namespace, secret.SecretSpec.Name, metav1.GetOptions{}); err == nil {
 				if managedSecret.ResourceVersion != secret.Status.ObservedSecretResourceVersion {
 					updateRequired = true
@@ -221,6 +225,8 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 
 		if !updateRequired {
 			common.Log.Debugf("skipping update %s", secret.Name)
+			common.Log.Debugf("%s metadata.generation[%d]==status.observedGeneration[%d]", secret.Name, secret.Generation, secret.Status.ObservedGeneration)
+			common.Log.Debugf("%s annotationChecksum[%s]==status.observedAnnotationChecksum[%s]", secret.Name, annotationChecksum, secret.Status.ObservedAnnotationChecksum)
 			return nil, nil
 		}
 	}
@@ -726,8 +732,14 @@ func (h *Handler) updateDockhandSecretStatus(secret *dockhand.Secret, managedSec
 	common.Log.Debugf("updating %s status", secret.Name)
 	secretCopy := secret.DeepCopy()
 	secretCopy.Status.State = state
+
+	if secretCopy.Status.SyncTimestamp == "" {
+		secretCopy.Status.SyncTimestamp = time.Unix(0, 0).Format(time.RFC3339)
+	}
+
 	// generation successfully processed so store observedGeneration
 	if state == dockhand.Ready {
+		secretCopy.Status.ObservedAnnotationChecksum = k8s.GetAnnotationsChecksum(secretCopy.Annotations)
 		secretCopy.Status.ObservedGeneration = secret.Generation
 		secretCopy.Status.SyncTimestamp = time.Now().Format(time.RFC3339)
 	}
