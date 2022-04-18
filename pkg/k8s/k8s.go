@@ -125,6 +125,23 @@ func GetDockhandSecretsListFromK8sSecrets(ctx context.Context, secretNames []str
 
 }
 
+// GetAnnotationsChecksum takes an annotation map and returns a sha1 checksum.
+func GetAnnotationsChecksum(annotations map[string]string) string {
+	keys := make([]string, 0, len(annotations))
+	for _, k := range annotations {
+		keys = append(keys, k)
+	}
+
+	sort.Strings(keys)
+	hash := sha1.New()
+
+	for _, k := range keys {
+		hash.Write([]byte(k))
+		hash.Write([]byte(annotations[k]))
+	}
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 // GetSecretsChecksum takes a set of secrets in a namespace and returns a checksum of all of the data in those secrets
 func GetSecretsChecksum(ctx context.Context, names []string, namespace string) (string, error) {
 	config, err := rest.InClusterConfig()
@@ -148,7 +165,7 @@ func GetSecretsChecksum(ctx context.Context, names []string, namespace string) (
 			common.Log.Warnf("error retrieving %s/%s %v", namespace, name, err)
 			return "", fmt.Errorf("unable to checksum secret %s/%s", namespace, name)
 		}
-		var keys []string
+		keys := make([]string, 0, len(secret.Data))
 		for k := range secret.Data {
 			keys = append(keys, k)
 		}
