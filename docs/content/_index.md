@@ -9,7 +9,7 @@ geekdocAnchor: false
 <!-- markdownlint-capture -->
 <!-- markdownlint-disable MD033 -->
 
-<span class="badge-placeholder">[![Build Status](https://img.shields.io/github/workflow/status/boxboat/dockhand-secrets-operator/docker)](https://github.com/boxboat/dockhand-secrets-operator)</span>
+<span class="badge-placeholder">[![Build Status](https://img.shields.io/github/actions/workflow/status/boxboat/dockhand-secrets-operator/docker.yaml?master)](https://github.com/boxboat/dockhand-secrets-operator)</span>
 <span class="badge-placeholder">[![GitHub release](https://img.shields.io/github/v/release/boxboat/dockhand-secrets-operator)](https://github.com/boxboat/dockhand-secrets-operator/releases/latest)</span>
 <span class="badge-placeholder">[![GitHub contributors](https://img.shields.io/github/contributors/boxboat/dockhand-secrets-operator)](https://github.com/boxboat/dockhand-secrets-operator/graphs/contributors)</span>
 <span class="badge-placeholder">[![License: APACHE](https://img.shields.io/github/license/boxboat/dockhand-secrets-operator)](https://github.com/boxboat/dockhand-secrets-operator/blob/main/LICENSE)</span>
