@@ -56,7 +56,6 @@ type Handler struct {
 	deployments                appscontrollers.DeploymentClient
 	dhSecretsController        dockhandcontrollers.SecretController
 	dhSecretsProfileController dockhandcontrollers.ProfileController
-	dhProfileCache             dockhandcontrollers.ProfileCache
 	statefulSets               appscontrollers.StatefulSetClient
 	secrets                    corecontrollers.SecretController
 	recorder                   record.EventRecorder
@@ -92,7 +91,6 @@ func Register(
 		deployments:                deployments,
 		dhSecretsController:        dockhandSecrets,
 		dhSecretsProfileController: dockhandProfile,
-		dhProfileCache:             dockhandProfile.Cache(),
 		secrets:                    secrets,
 		statefulSets:               statefulsets,
 		recorder:                   buildEventRecorder(events),
@@ -106,6 +104,7 @@ func Register(
 	// Register handlers
 	dockhandSecrets.OnChange(ctx, "dockhandsecret-onchange", h.onDockhandSecretChange)
 	dockhandSecrets.OnRemove(ctx, "dockhandsecret-onremove", h.onDockhandSecretRemove)
+	dockhandProfile.OnChange(ctx, "dockhandprofile-onchange", h.onDockhandProfileChange)
 	secrets.OnChange(ctx, "secrets-onchange", h.onManagedSecretChange)
 	daemonsets.OnChange(ctx, "daemonsets-onchange", h.onDaemonSetChange)
 	deployments.OnChange(ctx, "deployment-onchange", h.onDeploymentChange)
@@ -122,6 +121,16 @@ func buildEventRecorder(events typedcorev1.EventInterface) record.EventRecorder 
 	eventBroadcaster.StartLogging(common.Log.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: events})
 	return eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "dockhand-secrets-operator"})
+}
+
+// onDockhandProfileChange clean the cache for all associated secrets backends
+func (h *Handler) onDockhandProfileChange(key string, profile *dockhand.Profile) (*dockhand.Profile, error) {
+	common.Log.Infof("dockhand profile changed %s", key)
+	delete(h.awsProfileMap, key)
+	delete(h.azureProfileMap, key)
+	delete(h.gcpProfileMap, key)
+	delete(h.vaultProfileMap, key)
+	return nil, nil
 }
 
 // onManagedSecretChange handler to re-sync Dockhand Secret to managed secret when it is externally deleted or modified.
@@ -252,7 +261,7 @@ func (h *Handler) onDockhandSecretChange(_ string, secret *dockhand.Secret) (*do
 		common.LogIfError(statusErr)
 		return nil, err
 	}
-	profile, err := h.dhProfileCache.Get(profileNamespace, secret.Profile.Name)
+	profile, err := h.dhSecretsProfileController.Get(profileNamespace, secret.Profile.Name, metav1.GetOptions{})
 
 	if err != nil {
 		common.Log.Warnf("could not get profile %s/%s", profileNamespace, secret.Profile.Name)
