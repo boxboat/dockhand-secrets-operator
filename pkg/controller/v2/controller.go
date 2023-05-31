@@ -674,12 +674,12 @@ func (h *Handler) getProfileFuncMap(profile *dockhand.Profile) (template.FuncMap
 				}
 			}
 			if roleID != "" && secretID != "" {
-				opts = append(opts, vault.RoleAndSecretID(roleID, secretID))
+				opts = append(opts, vault.RoleAndSecretID(roleID, secretID), vault.AuthType(vault.RoleAuth))
 			}
 			if profile.Vault.TokenRef != nil {
 				if secretData, err := h.secrets.Get(profile.Namespace, profile.Vault.TokenRef.Name, metav1.GetOptions{}); err == nil {
 					if secretData != nil {
-						opts = append(opts, vault.Token(string(secretData.Data[profile.Vault.TokenRef.Key])))
+						opts = append(opts, vault.Token(string(secretData.Data[profile.Vault.TokenRef.Key])), vault.AuthType(vault.RoleAuth))
 					}
 				} else {
 					return nil, err
