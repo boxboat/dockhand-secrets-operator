@@ -20,6 +20,12 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
 	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
@@ -27,11 +33,6 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/tools/leaderelection"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
 )
 
 type ServerArgs struct {
@@ -60,7 +61,7 @@ func runCertManager(ctx context.Context) {
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: onStartedLeading,
 			OnStoppedLeading: onStoppedLeading,
-			OnNewLeader: onNewLeader(serverArgs.serviceId),
+			OnNewLeader:      onNewLeader(serverArgs.serviceId),
 		},
 		WatchDog:        nil,
 		ReleaseOnCancel: true,
@@ -130,7 +131,7 @@ func ensureTLSCertificateSecretInCluster(ctx context.Context) {
 			common.Log.Warnf("Could not update deployment %v", err)
 		}
 	} else {
-		err = k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName + ".dhs.dockhand.dev", caPem)
+		err = k8s.UpdateCABundleForWebhook(ctx, serverArgs.serviceName+".dhs.dockhand.dev", caPem)
 		common.LogIfError(err)
 	}
 
@@ -161,6 +162,8 @@ func runServer(ctx context.Context) {
 				break
 			}
 			attempt += 1
+		} else {
+			common.ExitIfError(fmt.Errorf("unable to retrieve a certificate after 10 attempts - exiting"))
 		}
 	}
 
@@ -168,9 +171,8 @@ func runServer(ctx context.Context) {
 
 	server := &webhook.Server{
 		Server: &http.Server{
-			Addr: fmt.Sprintf(":%v", serverArgs.serverPort),
-			TLSConfig: &tls.Config{Certificates: []tls.Certificate{tlsPair},
-			},
+			Addr:      fmt.Sprintf(":%v", serverArgs.serverPort),
+			TLSConfig: &tls.Config{Certificates: []tls.Certificate{tlsPair}},
 		},
 	}
 
