@@ -1,5 +1,5 @@
 ARG VERSION=master
-ARG GO_VERSION=1.20.6
+ARG GO_VERSION=1.21.7
 
 FROM --platform=${BUILDPLATFORM} golang:${GO_VERSION}-alpine as build
 

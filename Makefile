@@ -30,6 +30,9 @@ arch = $(word 3, $(target))
 
 .DEFAULT_GOAL := build
 
+generate:
+	go generate
+
 build:
 	GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build \
 	-ldflags="-w -s -X main.Version=$(VERSION)" \
