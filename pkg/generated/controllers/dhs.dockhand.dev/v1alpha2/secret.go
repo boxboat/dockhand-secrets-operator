@@ -1,5 +1,5 @@
 /*
-Copyright © 2023 BoxBoat
+Copyright © 2024 BoxBoat
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package v1alpha2
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	v1alpha2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
@@ -262,10 +263,14 @@ func (c *secretCache) GetByIndex(indexName, key string) (result []*v1alpha2.Secr
 	return result, nil
 }
 
+// SecretStatusHandler is executed for every added or modified Secret. Should return the new status to be updated
 type SecretStatusHandler func(obj *v1alpha2.Secret, status v1alpha2.SecretStatus) (v1alpha2.SecretStatus, error)
 
+// SecretGeneratingHandler is the top-level handler that is executed for every Secret event. It extends SecretStatusHandler by a returning a slice of child objects to be passed to apply.Apply
 type SecretGeneratingHandler func(obj *v1alpha2.Secret, status v1alpha2.SecretStatus) ([]runtime.Object, v1alpha2.SecretStatus, error)
 
+// RegisterSecretStatusHandler configures a SecretController to execute a SecretStatusHandler for every events observed.
+// If a non-empty condition is provided, it will be updated in the status conditions for every handler execution
 func RegisterSecretStatusHandler(ctx context.Context, controller SecretController, condition condition.Cond, name string, handler SecretStatusHandler) {
 	statusHandler := &secretStatusHandler{
 		client:    controller,
@@ -275,6 +280,8 @@ func RegisterSecretStatusHandler(ctx context.Context, controller SecretControlle
 	controller.AddGenericHandler(ctx, name, FromSecretHandlerToHandler(statusHandler.sync))
 }
 
+// RegisterSecretGeneratingHandler configures a SecretController to execute a SecretGeneratingHandler for every events observed, passing the returned objects to the provided apply.Apply.
+// If a non-empty condition is provided, it will be updated in the status conditions for every handler execution
 func RegisterSecretGeneratingHandler(ctx context.Context, controller SecretController, apply apply.Apply,
 	condition condition.Cond, name string, handler SecretGeneratingHandler, opts *generic.GeneratingHandlerOptions) {
 	statusHandler := &secretGeneratingHandler{
@@ -296,6 +303,7 @@ type secretStatusHandler struct {
 	handler   SecretStatusHandler
 }
 
+// sync is executed on every resource addition or modification. Executes the configured handlers and sends the updated status to the Kubernetes API
 func (a *secretStatusHandler) sync(key string, obj *v1alpha2.Secret) (*v1alpha2.Secret, error) {
 	if obj == nil {
 		return obj, nil
@@ -341,8 +349,10 @@ type secretGeneratingHandler struct {
 	opts  generic.GeneratingHandlerOptions
 	gvk   schema.GroupVersionKind
 	name  string
+	seen  sync.Map
 }
 
+// Remove handles the observed deletion of a resource, cascade deleting every associated resource previously applied
 func (a *secretGeneratingHandler) Remove(key string, obj *v1alpha2.Secret) (*v1alpha2.Secret, error) {
 	if obj != nil {
 		return obj, nil
@@ -352,12 +362,17 @@ func (a *secretGeneratingHandler) Remove(key string, obj *v1alpha2.Secret) (*v1a
 	obj.Namespace, obj.Name = kv.RSplit(key, "/")
 	obj.SetGroupVersionKind(a.gvk)
 
+	if a.opts.UniqueApplyForResourceVersion {
+		a.seen.Delete(key)
+	}
+
 	return nil, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
 		WithOwner(obj).
 		WithSetID(a.name).
 		ApplyObjects()
 }
 
+// Handle executes the configured SecretGeneratingHandler and pass the resulting objects to apply.Apply, finally returning the new status of the resource
 func (a *secretGeneratingHandler) Handle(obj *v1alpha2.Secret, status v1alpha2.SecretStatus) (v1alpha2.SecretStatus, error) {
 	if !obj.DeletionTimestamp.IsZero() {
 		return status, nil
@@ -367,9 +382,41 @@ func (a *secretGeneratingHandler) Handle(obj *v1alpha2.Secret, status v1alpha2.S
 	if err != nil {
 		return newStatus, err
 	}
+	if !a.isNewResourceVersion(obj) {
+		return newStatus, nil
+	}
 
-	return newStatus, generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
+	err = generic.ConfigureApplyForObject(a.apply, obj, &a.opts).
 		WithOwner(obj).
 		WithSetID(a.name).
 		ApplyObjects(objs...)
+	if err != nil {
+		return newStatus, err
+	}
+	a.storeResourceVersion(obj)
+	return newStatus, nil
+}
+
+// isNewResourceVersion detects if a specific resource version was already successfully processed.
+// Only used if UniqueApplyForResourceVersion is set in generic.GeneratingHandlerOptions
+func (a *secretGeneratingHandler) isNewResourceVersion(obj *v1alpha2.Secret) bool {
+	if !a.opts.UniqueApplyForResourceVersion {
+		return true
+	}
+
+	// Apply once per resource version
+	key := obj.Namespace + "/" + obj.Name
+	previous, ok := a.seen.Load(key)
+	return !ok || previous != obj.ResourceVersion
+}
+
+// storeResourceVersion keeps track of the latest resource version of an object for which Apply was executed
+// Only used if UniqueApplyForResourceVersion is set in generic.GeneratingHandlerOptions
+func (a *secretGeneratingHandler) storeResourceVersion(obj *v1alpha2.Secret) {
+	if !a.opts.UniqueApplyForResourceVersion {
+		return
+	}
+
+	key := obj.Namespace + "/" + obj.Name
+	a.seen.Store(key, obj.ResourceVersion)
 }
