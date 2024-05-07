@@ -15,18 +15,18 @@ This page tells you how to get started with the dockhand-secrets-operator, inclu
 - dockhand-secrets-operator-crd
 - dockhand-secrets-operator
 
-These charts can be found in the [dockhand-charts](https://github.com/boxboat/dockhand-charts) repository. 
+These charts can be found in the [charts](https://github.com/boxboat/dockhand-secrets-operator/charts) directory. 
 
 ```Shell
 # install dockhand-secrets-operator-crd
-helm repo add dockhand https://dockhand-charts.storage.googleapis.com
+helm repo add dso https://boxboat.github.io/dockhand-secrets-operator/charts
 helm repo update
-helm install --namespace dockhand-secrets-operator dockhand/dockhand-secrets-operator-crd
+helm install --namespace dockhand-secrets-operator dso/dockhand-secrets-operator-crd
 
 # install dockhand-secrets-operator
-helm repo add dockhand https://dockhand-charts.storage.googleapis.com
+helm repo add dso https://boxboat.github.io/dockhand-secrets-operator/charts
 helm repo update
-helm install --namespace dockhand-secrets-operator dockhand/dockhand-secrets-operator
+helm install --namespace dockhand-secrets-operator dso/dockhand-secrets-operator
 ```
 
 ## Add Dockhand Profile
