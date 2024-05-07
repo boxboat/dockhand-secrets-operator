@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "dockhand-secrets-operator.name" . }}-webhook-sa
+  labels:
+    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
+{{- with .Values.webhook.rbac.serviceAccount.annotations }}
+  annotations:
+    {{ toYaml . | nindent 4 }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "dockhand-secrets-operator.name" . }}-webhook-sa-cluster-role
+  labels:
+    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+     -  admissionregistration.k8s.io
+    resources:
+      - mutatingwebhookconfigurations
+    verbs:
+      - get
+      - create
+      - patch
+      - update
+      - list
+  - apiGroups:
+      - coordination.k8s.io
+    resources:
+      - leases
+    verbs:
+      - '*'
+  - apiGroups:
+      - apps
+    resources:
+      - deployments
+    resourceNames:
+      - {{ include "dockhand-secrets-operator.name" . }}-webhook
+    verbs:
+      - get
+      - patch
+      - update
+  - apiGroups: [ "" ]
+    resources:
+      - secrets
+    verbs:
+      - get
+      - create
+      - patch
+      - update
+      - list
+  - apiGroups: [ "" ]
+    resources:
+      - configmaps
+    verbs:
+      - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "dockhand-secrets-operator.name" . }}-webhook-sa-role-binding
+  labels:
+    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "dockhand-secrets-operator.name" . }}-webhook-sa-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "dockhand-secrets-operator.name" . }}-webhook-sa
+    namespace: {{ .Release.Namespace }}

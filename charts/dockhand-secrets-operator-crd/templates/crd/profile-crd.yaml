@@ -1,0 +1,176 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: profiles.dhs.dockhand.dev
+  labels:
+    app.kubernetes.io/name: profiles.dhs.dockhand.dev
+spec:
+  group: dhs.dockhand.dev
+  scope: Namespaced
+  names:
+    plural: profiles
+    singular: profile
+    kind: Profile
+    shortNames:
+      - dhp
+  versions:
+    - name: v1alpha2
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            awsSecretsManager:
+              type: object
+              description: |-
+                AWS Secrets Manager configuration to allow the Dockhand Secrets Operator
+                to retrieve Secrets from AWS. If no accessKeyId and secretAccessKey are provided
+                then chain credentials will be used.
+              allOf:
+                - required:
+                    - region
+              properties:
+                cacheTTL:
+                  type: string
+                  default: 60s
+                  description: |-
+                    Duration to cache secret responses
+                region:
+                  type: string
+                  description: |-
+                    AWS Region to retrieve secrets from
+                accessKeyId:
+                  type: string
+                  description: |-
+                    AWS IAM Access Key
+                secretAccessKeyRef:
+                  type: object
+                  description: |-
+                    Name of secret containing AWS IAM Secret Access Key in a key named AWS_SECRET_ACCES_KEY
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing AWS IAM Secret Access Key
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing the AWS IAM Secret Access Key
+            azureKeyVault:
+              type: object
+              description: |-
+                Azure Key Vault configuration to allow the Dockhand Secrets Operator to retrieve Secrets from Azure
+              allOf:
+                - required:
+                    - tenant
+                    - keyVault
+              properties:
+                cacheTTL:
+                  type: string
+                  default: 60s
+                  format: duration
+                  description: |-
+                    Duration to cache secret responses
+                tenant:
+                  type: string
+                  description: |-
+                    Azure Tenant ID where the Key Vault resides
+                clientId:
+                  type: string
+                  description: |-
+                    Azure Client ID to access the Key Vault
+                clientSecretRef:
+                  type: object
+                  description: |-
+                    Reference to Azure Client Secret
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing Azure Client Secret
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing the Azure Client Secret
+                keyVault:
+                  type: string
+                  description: |-
+                    Name of Azure Key Vault to retrieve secrets from
+            gcpSecretsManager:
+              type: object
+              description: |-
+                Google Cloud Platform Secrets Manager Configuration to allow Dockhand Secrets Operator to retrieve secrets
+                from GCP. Authentication can be Application Default Credentials or by providing a key.json
+              properties:
+                cacheTTL:
+                  type: string
+                  default: 60s
+                  description: |-
+                    Duration to cache secret responses
+                project:
+                  type: string
+                  description: |-
+                    The GCP Project to reference for this profile
+                credentialsFileSecretRef:
+                  type: object
+                  description: |-
+                    Secret Reference containing JSON credentials file stored in a key named gcp-credentials.json
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing GCP JSON Credentials
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing GCP JSON Credentials
+            vault:
+              type: object
+              description: |-
+                HashiCorp Vault Configuration to allow Dockhand Secrets Operator to retrieve secrets from Vault. Secrets
+                can be retrieved with either a roleId/secretId or with a Vault Token.
+              allOf:
+                - required:
+                    - addr
+              properties:
+                cacheTTL:
+                  type: string
+                  default: 60s
+                  description: |-
+                    Duration to cache secret responses
+                addr:
+                  type: string
+                  description: |-
+                    Vault Address e.g. http://vault:8200
+                roleId:
+                  type: string
+                  description: |-
+                    Vault Role ID
+                secretIdRef:
+                  type: object
+                  description: |-
+                    Reference to secret containing the Vault secretId
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing Vault secretId
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing Vault secretId
+                tokenRef:
+                  type: object
+                  description: |-
+                    Reference to secret containing the Vault Token
+                  properties:
+                    name:
+                      type: string
+                      description: |-
+                        Name of secret containing Vault Token
+                    key:
+                      type: string
+                      description: |-
+                        Key in the secret containing Vault Token

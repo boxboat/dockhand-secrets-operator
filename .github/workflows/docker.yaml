@@ -2,6 +2,9 @@ name: docker
 
 on:
   push:
+    paths:
+      - '**'
+      - '!charts/**'
     branches:
       - master
     tags:

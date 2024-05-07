@@ -1,0 +1,28 @@
+
+# set allowCrossNamespace to true for single tenant cross namespace Profile reference
+# see https://secrets-operator.dockhand.dev/usage/core-concepts/
+allowCrossNamespace: false
+
+controller:
+  rbac:
+    serviceAccount:
+      # controller.rbac.serviceAccount.annotations -- Additional Service Account annotations.
+      annotations: {}
+  replicas: 1
+  image:
+    pullPolicy: IfNotPresent
+    repository: boxboat/dockhand-secrets-operator
+    tag: v1.1.2
+  resources: {}
+
+webhook:
+  rbac:
+    serviceAccount:
+      # webhook.rbac.serviceAccount.annotations -- Additional Service Account annotations.
+      annotations: {}
+  replicas: 1
+  image:
+    pullPolicy: IfNotPresent
+    repository: boxboat/dockhand-secrets-operator
+    tag: v1.1.2
+  resources: {}

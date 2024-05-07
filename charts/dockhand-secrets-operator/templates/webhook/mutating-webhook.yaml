@@ -1,0 +1,62 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: {{ include "dockhand-secrets-operator.name" . }}-webhook.dhs.dockhand.dev
+  labels:
+    app.kubernetes.io/name: {{ include "dockhand-secrets-operator.name" . }}-webhook.dhs.dockhand.dev
+webhooks:
+  - name: {{ include "dockhand-secrets-operator.name" . }}-webhook-v1.dhs.dockhand.dev
+    failurePolicy: Fail
+    objectSelector:
+      matchLabels:
+        "dockhand.boxboat.io/autoUpdate": "true"
+    clientConfig:
+      service:
+        name: {{ include "dockhand-secrets-operator.name" . }}-webhook
+        namespace: {{ .Release.Namespace }}
+        path: "/mutate"
+    rules:
+      - apiGroups:
+          - "apps"
+        apiVersions:
+          - "v1"
+        operations:
+          - "CREATE"
+          - "UPDATE"
+        resources:
+          - "daemonsets"
+          - "deployments"
+          - "statefulsets"
+        scope: "*"
+    admissionReviewVersions:
+      - "v1"
+    sideEffects: None
+    timeoutSeconds: 30
+  - name: {{ include "dockhand-secrets-operator.name" . }}-webhook.dhs.dockhand.dev
+    failurePolicy: Fail
+    objectSelector:
+      matchLabels:
+        "dhs.dockhand.dev/autoUpdate": "true"
+    clientConfig:
+      service:
+        name: {{ include "dockhand-secrets-operator.name" . }}-webhook
+        namespace: {{ .Release.Namespace }}
+        path: "/mutate"
+    rules:
+      - apiGroups:
+          - "apps"
+        apiVersions:
+          - "v1"
+        operations:
+          - "CREATE"
+          - "UPDATE"
+        resources:
+          - "daemonsets"
+          - "deployments"
+          - "statefulsets"
+        scope: "*"
+    admissionReviewVersions:
+      - "v1"
+    sideEffects: None
+    timeoutSeconds: 30

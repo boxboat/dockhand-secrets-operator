@@ -1,0 +1,67 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "dockhand-secrets-operator.name" . }}-controller-sa
+  labels:
+    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
+{{- with .Values.controller.rbac.serviceAccount.annotations }}
+  annotations:
+    {{ toYaml . | nindent 4 }}
+{{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "dockhand-secrets-operator.name" . }}-controller-sa-cluster-role
+  labels:
+    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [ "*" ]
+    resources:
+      - events
+      - secrets
+      - daemonsets
+      - deployments
+      - statefulsets
+      - dockhandsecrets
+      - dockhandsecrets/status
+      - dockhandsecretsprofiles
+      - dockhandsecretsprofiles/status
+    verbs:
+      - get
+      - delete
+      - create
+      - patch
+      - update
+      - list
+      - watch
+  - apiGroups: [ "dhs.dockhand.dev" ]
+    resources:
+      - secrets
+      - secrets/status
+      - profiles
+      - profiles/status
+    verbs:
+      - get
+      - delete
+      - create
+      - patch
+      - update
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "dockhand-secrets-operator.name" . }}-controller-sa-role-binding
+  labels:
+    {{- include "dockhand-secrets-operator.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "dockhand-secrets-operator.name" . }}-controller-sa-cluster-role
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "dockhand-secrets-operator.name" . }}-controller-sa
+    namespace: {{ .Release.Namespace }}
