@@ -2,6 +2,16 @@ apiVersion: v1
 entries:
   dockhand-secrets-operator:
   - apiVersion: v2
+    appVersion: v1.1.7
+    created: "2024-05-14T20:12:36.798393251Z"
+    description: A Helm chart to install the dockhand-secrets-operator
+    digest: a57654da43332e922924c1fd11ea8826d684416b84f90a488814e49d1bd114b9
+    name: dockhand-secrets-operator
+    type: application
+    urls:
+    - https://github.com/boxboat/dockhand-secrets-operator/releases/download/dockhand-secrets-operator-0.5.5/dockhand-secrets-operator-0.5.5.tgz
+    version: 0.5.5
+  - apiVersion: v2
     appVersion: v1.1.6
     created: "2024-05-07T18:30:18.587273401Z"
     description: A Helm chart to install the dockhand-secrets-operator
@@ -13,6 +23,14 @@ entries:
     version: 0.5.4
   dockhand-secrets-operator-crd:
   - apiVersion: v2
+    created: "2024-05-14T20:12:36.955467353Z"
+    description: A Helm chart to install the dockhand-secrets-operator CRDs
+    digest: 82174925ef26c348f50c827731197f30098351488ee2544aefa209119acf8d96
+    name: dockhand-secrets-operator-crd
+    urls:
+    - https://github.com/boxboat/dockhand-secrets-operator/releases/download/dockhand-secrets-operator-crd-1.1.7/dockhand-secrets-operator-crd-1.1.7.tgz
+    version: 1.1.7
+  - apiVersion: v2
     created: "2024-05-07T18:30:18.707507292Z"
     description: A Helm chart to install the dockhand-secrets-operator CRDs
     digest: 89879779c904016f813fad5448b0776fc333f01eaad00d2db7a68fee3c6f9cdd
@@ -20,4 +38,4 @@ entries:
     urls:
     - https://github.com/boxboat/dockhand-secrets-operator/releases/download/dockhand-secrets-operator-crd-1.1.6/dockhand-secrets-operator-crd-1.1.6.tgz
     version: 1.1.6
-generated: "2024-05-07T18:30:18.707513534Z"
+generated: "2024-05-14T20:12:36.955486077Z"
