@@ -83,6 +83,8 @@ The `syncInterval` field instructs the operator to poll for changes to that part
 ### AWS Secrets Manager
 Dockhand `Secret` supports retrieval of an AWS Secrets Manager `json` secret using `<< (aws <secret-name> <json-key>) >>`. The `<secret-name>` supports optional `?version=<version-id>` query string.
 
+Note `<secret-name>` can also be the ARN of the secret.
+
 Suppose you have an AWS Secrets Manager Secret named `dockhand-test`, which has `json` data `{ "alpha": "s3cr3t", "bravo": "another-s3cr3t" }`. The following Dockhand `Secret` would generate create an `Opaque` `Secret` in the `aws` namespace.
 ```yaml
 ---
