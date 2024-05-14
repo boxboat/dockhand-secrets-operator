@@ -102,6 +102,7 @@ secretSpec:
   annotations:
     alpha: charlie
 data:
+  # aws secrets can also be accessed by arn
   aws-alpha: << (aws "dockcmd-test" "alpha") >>
   aws-bravo: << (aws "dockcmd-test" "bravo") >>
   aws-charile: << (aws "dockcmd-test" "charlie") >>
