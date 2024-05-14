@@ -1,6 +1,6 @@
 /release
 .idea
-/local-test-*
-/remote-test
+/local-test*
+/remote-test*
 /bin
 
