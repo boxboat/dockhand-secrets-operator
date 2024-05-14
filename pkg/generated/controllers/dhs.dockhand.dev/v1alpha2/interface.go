@@ -20,7 +20,8 @@ package v1alpha2
 import (
 	v1alpha2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	"github.com/rancher/lasso/pkg/controller"
-	"github.com/rancher/wrangler/pkg/schemes"
+	"github.com/rancher/wrangler/v2/pkg/generic"
+	"github.com/rancher/wrangler/v2/pkg/schemes"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
@@ -43,9 +44,10 @@ type version struct {
 	controllerFactory controller.SharedControllerFactory
 }
 
-func (c *version) Profile() ProfileController {
-	return NewProfileController(schema.GroupVersionKind{Group: "dhs.dockhand.dev", Version: "v1alpha2", Kind: "Profile"}, "profiles", true, c.controllerFactory)
+func (v *version) Profile() ProfileController {
+	return generic.NewController[*v1alpha2.Profile, *v1alpha2.ProfileList](schema.GroupVersionKind{Group: "dhs.dockhand.dev", Version: "v1alpha2", Kind: "Profile"}, "profiles", true, v.controllerFactory)
 }
-func (c *version) Secret() SecretController {
-	return NewSecretController(schema.GroupVersionKind{Group: "dhs.dockhand.dev", Version: "v1alpha2", Kind: "Secret"}, "secrets", true, c.controllerFactory)
+
+func (v *version) Secret() SecretController {
+	return generic.NewController[*v1alpha2.Secret, *v1alpha2.SecretList](schema.GroupVersionKind{Group: "dhs.dockhand.dev", Version: "v1alpha2", Kind: "Secret"}, "secrets", true, v.controllerFactory)
 }
