@@ -1,7 +1,7 @@
 ARG VERSION=master
 ARG GO_VERSION=1.23.4
 
-FROM --platform=${BUILDPLATFORM} golang:${GO_VERSION}-alpine as build
+FROM --platform=${BUILDPLATFORM} golang:${GO_VERSION}-alpine AS build
 
 RUN apk --no-cache add make ca-certificates
 RUN adduser -D dockhand
@@ -16,7 +16,7 @@ RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} VERSION=${VERSION} make build
 USER dockhand
 ENTRYPOINT ["/src/bin/dockhand-secrets-operator"]
 
-FROM --platform=${TARGETPLATFORM} gcr.io/distroless/static as release
+FROM gcr.io/distroless/static AS release
 
 COPY --from=build /etc/passwd /etc/group /etc/
 COPY --from=build /src/bin/dockhand-secrets-operator /bin/dockhand-secrets-operator
