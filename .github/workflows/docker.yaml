@@ -7,7 +7,6 @@ on:
       - '!charts/**'
     branches:
       - master
-      - 'feature/*'
     tags:
       - '*'
 
