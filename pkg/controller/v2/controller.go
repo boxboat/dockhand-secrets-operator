@@ -34,9 +34,9 @@ import (
 	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
 	dockhandcontrollers "github.com/boxboat/dockhand-secrets-operator/pkg/generated/controllers/dhs.dockhand.dev/v1alpha2"
 	"github.com/boxboat/dockhand-secrets-operator/pkg/k8s"
-	appscontrollers "github.com/rancher/wrangler/v2/pkg/generated/controllers/apps/v1"
-	corecontrollers "github.com/rancher/wrangler/v2/pkg/generated/controllers/core/v1"
-	"github.com/rancher/wrangler/v2/pkg/kv"
+	appscontrollers "github.com/rancher/wrangler/v3/pkg/generated/controllers/apps/v1"
+	corecontrollers "github.com/rancher/wrangler/v3/pkg/generated/controllers/core/v1"
+	"github.com/rancher/wrangler/v3/pkg/kv"
 	v1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -601,7 +601,7 @@ func (h *Handler) getProfileFuncMap(profile *dockhand.Profile) (template.FuncMap
 			if clientID != "" && clientSecret != "" {
 				opts = append(opts, azure.ClientIDAndSecret(clientID, clientSecret))
 			} else {
-				return nil, fmt.Errorf("no valid azure credentials provided in profile %s", profileName)
+				opts = append(opts, azure.UseChainCredentials())
 			}
 
 			var err error
