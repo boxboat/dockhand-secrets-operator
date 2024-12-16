@@ -79,6 +79,7 @@ jobs:
 
       - name: Build and push
         if: ${{ env.PUBLISH == 'yes' }}
+        id: push
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -89,3 +90,11 @@ jobs:
           tags: |
             boxboat/dockhand-secrets-operator:${{ env.CI_VERSION }}
             ghcr.io/boxboat/dockhand-secrets-operator:${{ env.CI_VERSION }}
+
+      - name: Attest ghcr image
+        if: ${{ env.PUBLISH == 'yes' }}
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ghcr.io/boxboat/dockhand-secrets-operator
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
