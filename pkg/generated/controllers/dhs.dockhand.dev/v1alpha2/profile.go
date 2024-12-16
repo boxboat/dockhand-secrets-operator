@@ -19,7 +19,7 @@ package v1alpha2
 
 import (
 	v1alpha2 "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
-	"github.com/rancher/wrangler/v2/pkg/generic"
+	"github.com/rancher/wrangler/v3/pkg/generic"
 )
 
 // ProfileController interface for managing Profile resources.
