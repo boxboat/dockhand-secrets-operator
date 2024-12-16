@@ -1,5 +1,5 @@
 # dockhand-secrets-operator
-![Main](https://github.com/boxboat/dockhand-secrets-operator/workflows/docker/badge.svg?branch=master)
+![Main](https://github.com/boxboat/dockhand-secrets-operator/actions/workflows/docker.yaml/badge.svg?branch=master)
 
 Secrets management with GitOps can be challenging in Kubernetes environments. Often engineers resort to manual secret creation,  injection of secrets through scripts with the CI/CD tool or even worse just committing the secrets directly to git.
 
