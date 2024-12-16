@@ -13,6 +13,11 @@ on:
 jobs:
   docker:
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      packages: write
+      contents: write
+      attestations: write
 
     steps:
       - uses: actions/checkout@v4
