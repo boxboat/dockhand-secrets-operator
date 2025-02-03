@@ -8,7 +8,7 @@ require (
 	github.com/boxboat/dockcmd v1.8.7
 	github.com/gobuffalo/packr/v2 v2.8.3
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/rancher/lasso v0.0.0-20241202185148-04649f379358
+	github.com/rancher/lasso v0.2.0
 	github.com/rancher/wrangler/v3 v3.1.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
