@@ -1,0 +1,18 @@
+# sanity checking test to ensure the CRD is loaded correctly
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: test-crds-load
+spec:
+  steps:
+    - try:
+        - apply:
+            # file is relative to the test folder
+            file: ../../charts/dockhand-secrets-operator-crd/templates/crd/profile-crd.yaml
+        - assert:
+            file: ../../charts/dockhand-secrets-operator-crd/templates/crd/profile-crd.yaml
+    - try:
+        - apply:
+            file: ../../charts/dockhand-secrets-operator-crd/templates/crd/secret-crd.yaml
+        - assert:
+            file: ../../charts/dockhand-secrets-operator-crd/templates/crd/secret-crd.yaml
