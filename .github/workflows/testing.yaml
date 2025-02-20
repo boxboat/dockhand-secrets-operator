@@ -1,0 +1,31 @@
+# spin up a cluster, install chainsaw and run tests
+
+on:
+  push:
+    paths:
+      - '**'
+      - '!charts/**'
+    # branches:
+    #   - master
+    tags:
+      - '*'
+
+jobs:
+  chainsaw:
+    runs-on: ubuntu-latest
+
+    permissions: {}
+
+    # name: Install Chainsaw
+    steps:
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.6.0
+      - name: Install Chainsaw
+        uses: kyverno/action-install-chainsaw@v0.1.0
+        with:
+          verify: true
+      - name: Check install
+        run: chainsaw version
+
+      - name: Create k8s Kind Cluster
+        uses: k8s-crafts/kind-action@v1
