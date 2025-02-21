@@ -28,4 +28,4 @@ jobs:
         run: chainsaw version
 
       - name: Create k8s Kind Cluster
-        uses: k8s-crafts/kind-action@v1
+        uses: k8s-crafts/kind-action@v1.1.0
