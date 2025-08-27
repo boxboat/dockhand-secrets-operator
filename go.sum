@@ -418,8 +418,8 @@ github.com/prometheus/common v0.62.0 h1:xasJaQlnWAeyHdUBeGjXmutelfJHWMRr+Fg4QszZ
 github.com/prometheus/common v0.62.0/go.mod h1:vyBcEuLSvWos9B1+CyL7JZ2up+uFzXhkqml0W5zIY1I=
 github.com/prometheus/procfs v0.15.1 h1:YagwOFzUgYfKKHX6Dr+sHT7km/hxC76UB0learggepc=
 github.com/prometheus/procfs v0.15.1/go.mod h1:fB45yRUv8NstnjriLhBQLuOUt+WW4BsoGhij/e3PBqk=
-github.com/rancher/lasso v0.0.0-20241202185148-04649f379358 h1:pJwgJXPt4fi0ysXsJcl28rvxhx/Z/9SNCDwFOEyeGu0=
-github.com/rancher/lasso v0.0.0-20241202185148-04649f379358/go.mod h1:IxgTBO55lziYhTEETyVKiT8/B5Rg92qYiRmcIIYoPgI=
+github.com/rancher/lasso v0.2.3 h1:74/z/C/O3ykhyMrRuEgc9kVyYiSoS7kp5BAijlcyXDg=
+github.com/rancher/lasso v0.2.3/go.mod h1:G+KeeOaKRjp+qGp0bV6VbLhYrq1vHbJPbDh40ejg5yE=
 github.com/rancher/wrangler/v3 v3.1.0 h1:8ETBnQOEcZaR6WBmUSysWW7WnERBOiNTMJr4Dj3UG/s=
 github.com/rancher/wrangler/v3 v3.1.0/go.mod h1:gUPHS1ANs2NyByfeERHwkGiQ1rlIa8BpTJZtNSgMlZw=
 github.com/redis/go-redis/v9 v9.7.3 h1:YpPyAayJV+XErNsatSElgRZZVCwXX9QzkKYNvO7x0wM=
@@ -520,8 +520,8 @@ go.opentelemetry.io/otel/trace v1.33.0/go.mod h1:uIcdVUZMpTAmz0tI1z04GoVSezK37Cb
 go.uber.org/atomic v1.7.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
-go.uber.org/mock v0.4.0 h1:VcM4ZOtdbR4f6VXfiOpwpVJDL6lCReaZ6mw31wqh7KU=
-go.uber.org/mock v0.4.0/go.mod h1:a6FSlNadKUHUa9IP5Vyt1zh4fC7uAwxMutEAscFbkZc=
+go.uber.org/mock v0.5.2 h1:LbtPTcP8A5k9WPXj54PPPbjcI4Y6lhyOZXn+VS7wNko=
+go.uber.org/mock v0.5.2/go.mod h1:wLlUxC2vVTPTaE3UD51E0BGOAElKrILxhVSDYQLld5o=
 go.uber.org/multierr v1.6.0/go.mod h1:cdWPpRnG4AhwMwsgIHip0KRBQjJy5kYEpYjJxpXp9iU=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
