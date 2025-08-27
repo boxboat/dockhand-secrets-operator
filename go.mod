@@ -1,6 +1,6 @@
 module github.com/boxboat/dockhand-secrets-operator
 
-go 1.23
+go 1.23.0
 
 require (
 	github.com/boxboat/dockcmd v1.8.7
@@ -123,7 +123,7 @@ require (
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.33.0 // indirect
-	golang.org/x/oauth2 v0.25.0 // indirect
+	golang.org/x/oauth2 v0.27.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/term v0.28.0 // indirect
