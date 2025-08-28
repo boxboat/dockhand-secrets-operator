@@ -1,0 +1,101 @@
+#                                                       _ _
+#    _ __  _ __ ___        ___ ___  _ __ ___  _ __ ___ (_) |_
+#   | '_ \| '__/ _ \_____ / __/ _ \| '_ ` _ \| '_ ` _ \| | __|
+#  _| |_) | | |  __/_____| (_| (_) | | | | | | | | | | | | |_
+# (_) .__/|_|  \___|      \___\___/|_| |_| |_|_| |_| |_|_|\__|
+#   |_|
+#
+# ...some basic sanity checks
+
+# may as well ignore everything dumped in here
+exclude: '^docs/themes'
+
+# install these hooks by default, on "pre-commit install"
+default_install_hook_types:
+  - pre-push
+
+repos:
+
+  # ░█▀▀░█▀▀░█▀█░█▀▀░█▀▄░█▀█░█░░░░
+  # ░█░█░█▀▀░█░█░█▀▀░█▀▄░█▀█░█░░░░
+  # ░▀▀▀░▀▀▀░▀░▀░▀▀▀░▀░▀░▀░▀░▀▀▀░░
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks.git
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      - id: check-toml
+      - id: check-xml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+      - id: pretty-format-json
+        args:
+          - --autofix
+          - --no-sort-keys
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.2
+    hooks:
+      # N.B. for a comprehensive list, see
+      # https://github.com/tekwizely/pre-commit-golang#installation
+      # - id: go-staticcheck-mod
+      - id: go-mod-tidy
+      - id: go-imports
+        args:
+          - -w
+
+  - repo: https://github.com/google/yamlfmt.git
+    rev: v0.17.2
+    hooks:
+      - id: yamlfmt
+
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.37.1
+    hooks:
+      # use this in preference to "core" check-yaml as it won't explode on
+      # !references
+      - id: yamllint
+
+# - repo: https://github.com/syntaqx/git-hooks
+#   rev: v0.0.18
+#   hooks:
+#     - id: forbid-binary
+#     - id: shellcheck
+#     - id: shfmt
+# - repo: https://github.com/hadolint/hadolint
+#   rev: v2.12.1-beta
+#   hooks:
+#     - id: hadolint
+# - repo: https://github.com/python-jsonschema/check-jsonschema
+#   rev: 0.30.0
+#   hooks:
+#     - id: check-gitlab-ci
+#       files: '^\.gitlab.ci.*\.yml$'
+#     - id: check-renovate
+
+# ░█▀▀░█▀█░█▄█░█▀█░█░░░▀█▀░█▀█░█▀█░█▀▀░█▀▀░░
+# ░█░░░█░█░█░█░█▀▀░█░░░░█░░█▀█░█░█░█░░░█▀▀░░
+# ░▀▀▀░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀░▀░▀░▀░▀░▀▀▀░▀▀▀░░
+
+# - repo: https://github.com/ibm/detect-secrets.git
+#   rev: 0.13.1+ibm.61.dss
+#   hooks:
+#     # NOTE this is required for ITSS compliance
+#     - id: detect-secrets
+#       exclude: go.sum
+# - repo: https://github.com/Lucas-C/pre-commit-hooks
+#   rev: v1.5.5
+#   hooks:
+#     - id: insert-license
+#       types: ['go']
+#       args:
+#         # - --comment-style='/*| *| */'
+#         - --comment-style=
+#         - --license-filepath=hack/boilerplate.go.txt
