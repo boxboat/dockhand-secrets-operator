@@ -15,7 +15,7 @@ This page tells you how to get started with the dockhand-secrets-operator, inclu
 - dockhand-secrets-operator-crd
 - dockhand-secrets-operator
 
-These charts can be found in the [charts](https://github.com/boxboat/dockhand-secrets-operator/charts) directory. 
+These charts can be found in the [charts](https://github.com/boxboat/dockhand-secrets-operator/charts) directory.
 
 ```Shell
 # install dockhand-secrets-operator-crd
@@ -30,7 +30,7 @@ helm install --namespace dockhand-secrets-operator dso/dockhand-secrets-operator
 ```
 
 ## Add Dockhand Profile
-Once the operator is installed, you will need to give it access to the Secrets Manager(s) that you want to use on the cluster. This is accomplished by creating a `Profile`. See [core-concepts](/usage/core-concepts) 
+Once the operator is installed, you will need to give it access to the Secrets Manager(s) that you want to use on the cluster. This is accomplished by creating a `Profile`. See [core-concepts](/usage/core-concepts)
 
 ## Add Dockhand Secrets
 Start adding Dockhand `Secrets` to your deployment manifests! See [core-concepts](/usage/core-concepts)
@@ -52,4 +52,3 @@ Changes:
 * `profile: <profile-name>` -> `profile.name: <profile-name>` `profile.namespace: <profile-namespace>`
     * `profile` field is now an object that contains a `name` and `namespace` field.
     * `v1alpha1` assumed `DockhandProfiles` existed in `dockhand-secrets-operator` namespace and did not support multi-tenant use case. `v1alpha2` allows the operator to operate in a multi-tenant mode or a single tenant mode where `Profiles` can be referenced in any namespace where the `dockhand-secrets-operator` has read access.
-  

@@ -20,6 +20,7 @@ import (
 	dockhand "github.com/boxboat/dockhand-secrets-operator/pkg/apis/dhs.dockhand.dev/v1alpha2"
 	controllergen "github.com/rancher/wrangler/v3/pkg/controller-gen"
 	"github.com/rancher/wrangler/v3/pkg/controller-gen/args"
+
 	// Ensure gvk gets loaded in wrangler/pkg/gvk cache
 	_ "github.com/rancher/wrangler/v3/pkg/generated/controllers/apiextensions.k8s.io/v1"
 )

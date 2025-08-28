@@ -1,4 +1,3 @@
----
 header:
   - name: GitHub
     ref: https://github.com/boxboat/dockhand-secrets-operator
