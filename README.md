@@ -4,7 +4,7 @@
 
 Secrets management with GitOps can be challenging in Kubernetes environments. Often engineers resort to manual secret creation,  injection of secrets through scripts with the CI/CD tool or even worse just committing the secrets directly to git.
 
-The Dockhand Secrets Operator solves that problem by allowing you to make arbitrary secrets in a familiar way with only the secret bits stored in the backend(s) of your choice - AWS Secrets Manager, Azure Key Vault, GCP Secrets Manager or Vault. Secret references can be stored in git with your Helm chart or Kubernetes manifests. 
+The Dockhand Secrets Operator solves that problem by allowing you to make arbitrary secrets in a familiar way with only the secret bits stored in the backend(s) of your choice - AWS Secrets Manager, Azure Key Vault, GCP Secrets Manager or Vault. Secret references can be stored in git with your Helm chart or Kubernetes manifests.
 
 The operator supports auto rolling updates for `Deployments`, `StatefulSets` and `DaemonSets` through the use of a single `label` added to the metadata of those items. The operator accomplishes this by injecting an annotation with the checksum of the `Secrets` referenced in those manifests and will update that checksum annotation automatically when the secret changes.
 
@@ -21,7 +21,7 @@ The operator installation deploys the CRDs, the controller and a mutating webhoo
 
 #### Dockhand Profile
 
-Example of how to create a `Profile`. 
+Example of how to create a `Profile`.
 
 Note that `dockhand-secrets-operator` has to 2 main operating modes. One that will allow cross namespace access to Dockhand `Profiles` and the default mode which blocks cross namespace access. The default mode supports  multi-tenant usage by requiring a `Profile` in each namespace. If you are running a single-tenant cluster then the flag `--allow-cross-namespace` will allow you to specify a `Profile` in another namespace for the operator to utilize.
 
@@ -90,7 +90,7 @@ apiVersion: dhs.dockhand.dev/v1alpha2
 kind: Secret
 metadata:
   name: dockhand-example-secret
-profile: 
+profile:
   name: dockhand-profile
   namespace: dockhand-secrets-operator
 secretSpec:

@@ -1,0 +1,14 @@
+gitignore_excludes: true
+doublestar: true
+exclude:
+  - "charts/**/*.yaml"
+  - "test/data/crds/*.yaml"
+  # this next one is generated
+  - "config/rbac/role.yaml"
+  - "config/crd/bases/*.yaml"
+formatter:
+  type: basic
+  retain_line_breaks: true
+  max_line_length: 78
+
+# vim: set ft=yaml :

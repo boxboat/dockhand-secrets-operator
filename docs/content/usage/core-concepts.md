@@ -12,7 +12,7 @@ With the `v1alpha2` types, the `dockhand-secrets-operator` supports the multi-te
 ## Dockhand Profile
 A `Profile` can contain one or more secrets backends and provides the `dockhand-secrets-operator` with the information it needs to connect to a Secrets Manager.
 
-For simplicity the examples below assume a single tenant use case where the `Profile` exists in the `dockhand-secrets-operator` namespace. 
+For simplicity the examples below assume a single tenant use case where the `Profile` exists in the `dockhand-secrets-operator` namespace.
 
 ### Example: Dockhand Profile
 ```yaml
@@ -73,9 +73,9 @@ The Dockhand `Secret` will generate a secret of type `secretSpec.type` in the sa
 
 The `profile` field allows you to specify different `Profiles`, which gives you flexibility to connect to numerous Secrets Managers from the same cluster.
 
-The `syncInterval` field instructs the operator to poll for changes to that particular Dockhand `Secret` - something greater than `5s`. The default is `0s`, which means do not poll. 
+The `syncInterval` field instructs the operator to poll for changes to that particular Dockhand `Secret` - something greater than `5s`. The default is `0s`, which means do not poll.
 
-#### `syncInterval` Considerations: 
+#### `syncInterval` Considerations:
 * Cloud Providers charge for secrets retrieval requests
 * `cacheTTL` is specified in the `Profile` so be aware of your TTL when picking a `syncInterval`.
 * See [Auto Updates](#auto-updates) section below
@@ -93,7 +93,7 @@ kind: Secret
 metadata:
   name: example-aws-dockhand
   namespace: aws
-profile: 
+profile:
   name: dockhand-profile
   namespace: dockhand-secrets-operator
 # default 0s - set to an interval greater than 5s to enable polling for changes
@@ -141,7 +141,7 @@ kind: Secret
 metadata:
   name: example-azure-dockhand
   namespace: azure
-profile: 
+profile:
   name: dockhand-profile
   namespace: dockhand-secrets-operator
 secretSpec:
@@ -277,7 +277,7 @@ metadata:
   annotations:
     # use an annotation like this to force a sync everytime a helm deployment is made
     updateTimestamp: {{ now | date "20060102150405" | quote }}
-profile: 
+profile:
   name: dockhand-profile
   namespace: dockhand-secrets-operator
 # default 0s - set to an interval greater than 5s to enable polling for changes

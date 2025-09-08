@@ -1,0 +1,19 @@
+extends: default
+
+ignore:
+  # AFAICT, these are all generated
+  - config/
+  - charts/
+  - testdata/crds/
+
+rules:
+  document-start: false
+  colons:
+    max-spaces-before: 0
+    max-spaces-after: -1
+  line-length: false
+
+  indentation:
+    indent-sequences: consistent
+
+# vim: set ft=yaml :

@@ -18,10 +18,11 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
-	log "github.com/sirupsen/logrus"
 	"os"
 	"strings"
+
+	"github.com/boxboat/dockhand-secrets-operator/pkg/common"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"

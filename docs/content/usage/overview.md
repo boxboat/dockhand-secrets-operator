@@ -8,7 +8,7 @@ weight: -100
 Dockhand Secrets Operator is a Secrets Management Kubernetes Operator.
 
 ## Why Dockhand Secrets Operator?
-Creation of arbitrary Kubernetes Secrets for your application deployments should be declarative, repeatable, easy, secure and flexible. In an ideal world, your Kubernetes `Secrets` manifests would be stored in your git repository alongside your application deployment manifests - allowing for full GitOps. The obvious problem is then your secrets aren't secret anymore. 
+Creation of arbitrary Kubernetes Secrets for your application deployments should be declarative, repeatable, easy, secure and flexible. In an ideal world, your Kubernetes `Secrets` manifests would be stored in your git repository alongside your application deployment manifests - allowing for full GitOps. The obvious problem is then your secrets aren't secret anymore.
 
 `dockhand-secrets-operator` gives you the next best thing a `CustomResourceDefinition` - Dockhand `Secret` that has feature parity with a Kubernetes `Secret` manifest. The `Secret` feels like a regular `Secret` but provides a familiar Go templating syntax that will allow the operator to make your Kubernets `Secret` during your manifest deployment.
 
