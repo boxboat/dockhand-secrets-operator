@@ -1,4 +1,4 @@
-name: pre-commit
+name: testing
 
 on:
   pull_request:
@@ -16,4 +16,10 @@ jobs:
       - name: Install goimports
         run: go install golang.org/x/tools/cmd/goimports@latest
       - uses: actions/setup-python@v3
+
+      # linting
       - uses: pre-commit/action@v3.0.1
+
+      # ...and unit tests
+      - name: Run tests
+        run: make test
