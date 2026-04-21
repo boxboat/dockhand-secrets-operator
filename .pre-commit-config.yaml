@@ -41,7 +41,7 @@ repos:
           - --autofix
           - --no-sort-keys
   - repo: https://github.com/tekwizely/pre-commit-golang
-    rev: v1.0.0-rc.2
+    rev: v1.0.0-rc.4
     hooks:
       # N.B. for a comprehensive list, see
       # https://github.com/tekwizely/pre-commit-golang#installation
@@ -52,12 +52,12 @@ repos:
           - -w
 
   - repo: https://github.com/google/yamlfmt.git
-    rev: v0.17.2
+    rev: v0.21.0
     hooks:
       - id: yamlfmt
 
   - repo: https://github.com/adrienverge/yamllint.git
-    rev: v1.37.1
+    rev: v1.38.0
     hooks:
       # use this in preference to "core" check-yaml as it won't explode on
       # !references
