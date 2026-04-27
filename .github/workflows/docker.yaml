@@ -59,7 +59,7 @@ jobs:
 
       - name: Set up QEMU
         if: ${{ env.PUBLISH == 'yes' }}
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Set up Buildx
         if: ${{ env.PUBLISH == 'yes' }}
