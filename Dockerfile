@@ -1,9 +1,8 @@
 ARG VERSION=master
 ARG GO_VERSION=1.25.0
 
-FROM --platform=${BUILDPLATFORM} golang:${GO_VERSION}-alpine AS build
+FROM --platform=${BUILDPLATFORM} cgr.dev/chainguard/go:latest AS build
 
-RUN apk --no-cache add make ca-certificates
 RUN adduser -D dockhand
 WORKDIR /src
 COPY go.mod go.sum /src/
