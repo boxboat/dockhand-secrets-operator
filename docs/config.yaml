@@ -1,4 +1,0 @@
-baseURL: https://secrets-operator.dockhand.dev/
-languageCode: en-us
-title: dockhand-secrets-operator
-theme: hugo-geekdocs
