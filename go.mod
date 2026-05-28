@@ -30,7 +30,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal v1.1.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.3.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.3.1 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.32.6 // indirect
 	github.com/aws/aws-sdk-go-v2/config v1.28.6 // indirect
@@ -105,7 +105,7 @@ require (
 	github.com/sourcegraph/conc v0.3.0 // indirect
 	github.com/spf13/afero v1.12.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/pflag v1.0.9 // indirect
+	github.com/spf13/pflag v1.0.10 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
@@ -136,7 +136,7 @@ require (
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	helm.sh/helm/v3 v3.18.5 // indirect
+	helm.sh/helm/v3 v3.20.2 // indirect
 	k8s.io/apiextensions-apiserver v0.36.0 // indirect
 	k8s.io/code-generator v0.36.0 // indirect
 	k8s.io/gengo v0.0.0-20250130153323-76c5745d3511 // indirect
