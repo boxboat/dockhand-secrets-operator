@@ -6,7 +6,7 @@ on:
       - '**'
       - '!charts/**'
     branches:
-      - master
+      - $default-branch
     tags:
       - '*'
 
